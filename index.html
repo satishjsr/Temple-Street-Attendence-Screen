@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Temple Street Attendence System</title>
+    <title>Temple Street ERP</title>
     <style>
         body, html { 
             margin: 0; 
@@ -21,9 +21,17 @@
     </style>
 </head>
 <body>
-    <iframe 
-        src="https://script.google.com/a/macros/templestreet.in/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec" 
-        allow="camera *; geolocation *; microphone *; autoplay *">
-    </iframe>
+    <iframe id="erpFrame" allow="camera *; geolocation *; microphone *; autoplay *"></iframe>
+    
+    <script>
+        // Aapka Google Script ka Main Link
+        const scriptUrl = "https://script.google.com/a/macros/templestreet.in/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
+        
+        // Link ke aage jo bhi likha ho (jaise ?mode=admin), use pakadna
+        const queryString = window.location.search;
+        
+        // Iframe ko sahi link par bhejna
+        document.getElementById("erpFrame").src = scriptUrl + queryString;
+    </script>
 </body>
 </html>
