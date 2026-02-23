@@ -1,37 +1,349 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Temple Street ERP</title>
-    <style>
-        body, html { 
-            margin: 0; 
-            padding: 0; 
-            height: 100%; 
-            width: 100%;
-            overflow: hidden; 
-            background-color: #f1f5f9; 
-        }
-        iframe { 
-            border: none; 
-            width: 100%; 
-            height: 100%; 
-        }
-    </style>
-</head>
-<body>
-    <iframe id="erpFrame" allow="camera *; geolocation *; microphone *; autoplay *"></iframe>
+  <script>
+    const MAIN_SYSTEM_URL = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
     
-    <script>
-        // Aapka Google Script ka Main Link
-        const scriptUrl = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
+    // Agar link mein admin ya portal hai, toh unhe bina roke Google Script par bhej do
+    if (mode === 'admin' || mode === 'portal') {
+        window.location.replace(MAIN_SYSTEM_URL + "?mode=" + mode);
+    }
+  </script>
+
+  <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+  <title>Temple Street ERP</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  
+  <style>
+    body { background-color: #f1f5f9; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
+    .main-card { background: white; max-width: 420px; width: 100%; border-radius: 20px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
+    .app-title { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
+    
+    #feedback { min-height: 28px; margin-bottom: 12px; font-size: 14px; font-weight: 700; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
+    .feed-pill { padding: 6px 15px; border-radius: 12px; display: inline-block; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+    .camera-wrap { position: relative; width: 100%; aspect-ratio: 4/3; margin: 0 auto 15px auto; border-radius: 16px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+    .status-pill { position: absolute; top: 12px; right: 12px; padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 700; z-index: 20; letter-spacing: 0.5px; backdrop-filter: blur(4px); }
+    .bg-secondary { background: rgba(100, 116, 139, 0.8) !important; color: white; }
+    .bg-success { background: rgba(16, 185, 129, 0.8) !important; color: white; }
+    .form-select, .form-control { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; font-size: 15px; color: #334155; font-weight: 600; text-align: center; box-shadow: none; transition: all 0.2s; }
+    .form-select:focus, .form-control:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1); outline: none; }
+    .btn-punch { background: #0284c7; color: white; border: none; padding: 14px; width: 100%; font-weight: 700; border-radius: 12px; letter-spacing: 0.5px; font-size: 15px; transition: 0.2s; }
+    .btn-punch:hover:not(:disabled) { background: #0369a1; transform: translateY(-1px); color: white; }
+    .btn-punch:disabled { background: #cbd5e1; cursor: not-allowed; color: #64748b; }
+    #detectingBox { font-size: 13px; font-weight: 700; min-height: 20px; margin-bottom: 10px; }
+    .alert-dark { background-color: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; border-radius: 12px; font-weight: 500; }
+    .alert-success { background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 12px; font-weight: 600; }
+    .verified-badge { background: #10b981; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px; display: inline-block; }
+  </style>
+</head>
+
+<body>
+  <div class="main-card">
+    <div class="app-title text-sky-600">Temple Street ERP</div>
+    
+    <div id="feedback"></div>
+    <div id="detectingBox"></div>
+    
+    <div class="camera-wrap">
+      <div id="gpsPill" class="status-pill bg-secondary">GPS: OFFLINE</div>
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    
+    <div id="aiMsg" class="alert alert-dark py-2 small mb-3">⏳ Connecting to Database...</div>
+    
+    <select id="outlet" class="form-select mb-3">
+      <option value="Ashok Nagar">Ashok Nagar</option>
+      <option value="ORN">ORN</option>
+      <option value="Naraina">Naraina</option>
+    </select>
+    
+    <div class="d-flex gap-2 mb-3">
+      <input type="text" id="empID" class="form-control mb-0" 
+             placeholder="Show Face or Enter ID" 
+             oninput="this.value = this.value.toUpperCase();">
+      <button class="btn btn-secondary px-3" onclick="resetScanner()" style="border-radius: 12px; font-weight: bold; background: #64748b; border: none;">✖</button>
+    </div>
+    
+    <button id="punchBtn" class="btn btn-punch" onclick="handleAttendance()" disabled>PUNCH ATTENDANCE</button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    
+    const firebaseConfig = { databaseURL: "https://temple-street-erp-default-rtdb.firebaseio.com/" };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    window.firebaseDb = db; 
+
+    const connectedRef = ref(db, ".info/connected");
+    onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        console.log("🔥 Firebase connected!");
+      } else {
+        document.getElementById('aiMsg').innerText = "⚠️ Network issue, retrying connection...";
+      }
+    });
+
+    onValue(ref(db, 'staff'), (snapshot) => {
+      try {
+        const data = snapshot.val();
+        if(!data) {
+           document.getElementById('aiMsg').innerText = "⚠️ DB is empty. Please run sync script in backend.";
+           return;
+        }
         
-        // Link ke aage jo bhi likha ho (jaise ?mode=admin), use pakadna
-        const queryString = window.location.search;
+        const labeledDescriptors = [];
+        window.staffMap = {}; 
+        let validFacesCount = 0;
         
-        // Iframe ko sahi link par bhejna
-        document.getElementById("erpFrame").src = scriptUrl + queryString;
-    </script>
+        for (let empId in data) {
+          if (data[empId].faceCode) {
+            window.staffMap[empId] = { name: data[empId].name || "Staff", outlet: data[empId].outlet || "" };
+            let rawCode = data[empId].faceCode;
+            let floatArr;
+            try {
+                if (typeof rawCode === 'string') floatArr = new Float32Array(JSON.parse(rawCode));
+                else if (Array.isArray(rawCode)) floatArr = new Float32Array(rawCode);
+                else floatArr = new Float32Array(Object.values(rawCode));
+                
+                if(floatArr.length === 128) {
+                    labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(empId, [floatArr]));
+                    validFacesCount++;
+                }
+            } catch(parseErr) {}
+          }
+        }
+        
+        if (labeledDescriptors.length > 0) {
+          window.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.48); 
+          const aiMsg = document.getElementById('aiMsg');
+          aiMsg.className = "alert alert-success py-2 small mb-3";
+          aiMsg.innerHTML = `✅ DB Ready (${validFacesCount} faces) | AI Active`;
+        }
+      } catch (err) {}
+    });
+
+    window.recordInstantPunch = (id) => {
+      const today = new Date().toISOString().split('T')[0];
+      set(ref(db, `punches/${today}/${id}`), { time: new Date().toLocaleTimeString("en-IN"), status: "P" });
+    };
+
+    window.registerNewFaceToFirebase = (id, descriptor, outlet) => {
+      set(ref(db, `staff/${id}/faceCode`), Array.from(descriptor));
+      set(ref(db, `staff/${id}/outlet`), outlet);
+    };
+  </script>
+
+  <script>
+    // 🔥 GOOGLE API ENDPOINT 🔥
+    const GOOGLE_API_URL = MAIN_SYSTEM_URL;
+
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    let userPos = { lat: 0, lng: 0 };
+    let isIdentifying = false;
+    let punchTimer;
+    let lastDetectedMood = "😐"; 
+
+    window.onload = async () => {
+      // System ko decide karne do ki aage badhna hai ya nahi
+      if (window.location.search.includes('mode=')) return;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => { video.play(); }; 
+        
+        document.getElementById('aiMsg').innerText = "⏳ Loading AI Engine...";
+
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL) 
+        ]);
+        
+        document.getElementById('punchBtn').disabled = false;
+        
+        startTracking();
+        startGps();
+        startAutoIdentification(); 
+      } catch (e) { 
+        document.getElementById('aiMsg').innerHTML = "❌ <b>Camera Denied.</b> Please allow camera access."; 
+      }
+    };
+
+    window.resetScanner = () => {
+      if(punchTimer) clearTimeout(punchTimer);
+      document.getElementById('empID').value = "";
+      document.getElementById('empID').readOnly = false;
+      document.getElementById('detectingBox').innerHTML = "";
+      document.getElementById('feedback').innerHTML = ""; 
+      isIdentifying = false; 
+    };
+
+    function startTracking() {
+      const displaySize = { width: video.videoWidth || 400, height: video.videoHeight || 300 };
+      faceapi.matchDimensions(overlay, displaySize);
+      setInterval(async () => {
+        const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+        const resized = faceapi.resizeResults(detections, displaySize);
+        overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+        faceapi.draw.drawDetections(overlay, resized);
+      }, 100);
+    }
+
+    function startAutoIdentification() {
+      setInterval(async () => {
+        if (isIdentifying) return;
+
+        try {
+          const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceExpressions() 
+            .withFaceDescriptor();
+          
+          if (detection) {
+            if (document.activeElement.id === 'empID') return; 
+            if (document.getElementById('empID').value !== "") return; 
+
+            isIdentifying = true;
+            document.getElementById('detectingBox').innerHTML = "🔍 <span style='color:#f59e0b'>SCANNING FACE...</span>";
+            document.getElementById('feedback').innerHTML = "";
+            
+            if(window.faceMatcher) {
+                const result = window.faceMatcher.findBestMatch(detection.descriptor);
+                
+                if (result.label !== 'unknown' && result.distance <= 0.48) {
+                    const empId = result.label;
+                    const info = window.staffMap[empId] || { name: "", outlet: "" };
+
+                    let moodEmoji = "😐 NORMAL";
+                    if(detection.expressions) {
+                        const exps = detection.expressions;
+                        const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
+                        const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
+                        moodEmoji = moodMap[dominant] || "😐 NORMAL";
+                        lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐"; 
+                    }
+
+                    document.getElementById('empID').value = empId;
+                    document.getElementById('empID').readOnly = true; 
+                    if(info.outlet) document.getElementById('outlet').value = info.outlet;
+
+                    document.getElementById('detectingBox').innerHTML = `✅ <span class='verified-badge'>HI, ${info.name} | ${moodEmoji}</span>`;
+                    
+                    punchTimer = setTimeout(() => { handleAttendance(); }, 1500);
+                } else {
+                    document.getElementById('detectingBox').innerHTML = "❓ <span style='color:#ef4444'>NOT RECOGNIZED</span>";
+                    isIdentifying = false; 
+                }
+            } else {
+                document.getElementById('detectingBox').innerHTML = "⏳ <span style='color:#f59e0b'>WAITING FOR DB...</span>";
+                isIdentifying = false;
+            }
+          } else {
+            const detectingText = document.getElementById('detectingBox').innerText;
+            const isAIControlled = document.getElementById('empID').readOnly;
+            const isNotPunching = !document.getElementById('punchBtn').disabled;
+
+            if (detectingText.includes("NOT RECOGNIZED") || (isAIControlled && isNotPunching)) {
+                window.resetScanner();
+            }
+          }
+        } catch (err) {
+          isIdentifying = false;
+        }
+      }, 1500); 
+    }
+
+    function startGps() {
+      navigator.geolocation.watchPosition(pos => {
+        userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        document.getElementById('gpsPill').className = "status-pill bg-success";
+        document.getElementById('gpsPill').innerText = "GPS: ACTIVE";
+      }, null, { enableHighAccuracy: true });
+    }
+
+    async function handleAttendance() {
+      const id = document.getElementById('empID').value.trim().toUpperCase();
+      if(!id) return alert("Please show your face or enter ID manually");
+
+      document.getElementById('punchBtn').disabled = true;
+      document.getElementById('feedback').innerHTML = "<span class='feed-pill' style='background:#fef3c7; color:#d97706; border: 1px solid #fde68a;'>⏳ Saving Punch...</span>";
+      
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+      if(!detection) { 
+          document.getElementById('detectingBox').innerHTML = "❌ <span style='color:#ef4444'>Face lost! Step back in frame.</span>";
+          setTimeout(() => { window.resetScanner(); }, 2000);
+          document.getElementById('punchBtn').disabled = false; 
+          document.getElementById('feedback').innerHTML = ""; 
+          return; 
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      
+      if(window.recordInstantPunch) window.recordInstantPunch(id);
+
+      // 🔥 NAYA FETCH LOGIC (DIRECT COMMUNICATION WITH GOOGLE SCRIPT) 🔥
+      const payloadData = {
+        empID: id, outlet: document.getElementById('outlet').value,
+        lat: userPos.lat, lng: userPos.lng,
+        faceDescriptor: Array.from(detection.descriptor),
+        photo: canvas.toDataURL('image/jpeg', 0.5),
+        mood: lastDetectedMood 
+      };
+
+      fetch(GOOGLE_API_URL, {
+        redirect: "follow",
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "PUNCH_ATTENDANCE", payload: payloadData })
+      })
+      .then(response => response.json())
+      .then(res => {
+        document.getElementById('punchBtn').disabled = false;
+        
+        let msg = res.status || "Unknown Response";
+        let isSuccess = msg.toLowerCase().includes("success") || msg.toLowerCase().includes("register");
+        let isAlready = msg.includes("⚠️");
+
+        if(isSuccess) {
+            document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#ecfdf5; color:#059669; border: 1px solid #a7f3d0;'>✅ ${msg}</span>`;
+            if(window.registerNewFaceToFirebase && !window.staffMap[id]) {
+                window.registerNewFaceToFirebase(id, detection.descriptor, document.getElementById('outlet').value);
+            }
+        } else if (isAlready) {
+            document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#fff7ed; color:#ea580c; border: 1px solid #fed7aa;'>${msg}</span>`;
+        } else {
+            document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#fef2f2; color:#dc2626; border: 1px solid #fecaca;'>❌ ${msg}</span>`;
+        }
+
+        setTimeout(() => { window.resetScanner(); }, 3500); 
+      })
+      .catch(error => {
+        console.error(error);
+        document.getElementById('punchBtn').disabled = false;
+        document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#fef2f2; color:#dc2626; border: 1px solid #fecaca;'>❌ Server Error, Try Again</span>`;
+        setTimeout(() => { window.resetScanner(); }, 3000);
+      });
+    }
+  </script>
 </body>
 </html>
