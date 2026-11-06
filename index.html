@@ -1,92 +1,270 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script>
-    const MAIN_SYSTEM_URL = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode');
-    
-    // Agar link mein admin ya portal hai, toh unhe bina roke Google Script par bhej do
-    if (mode === 'admin' || mode === 'portal') {
-        window.location.replace(MAIN_SYSTEM_URL + "?mode=" + mode);
-    }
-  </script>
-
-  <meta charset="UTF-8">
+  <base target="_top">
+  <meta charset="utf-8">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
-  <title>Temple Street ERP</title>
-  
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-  
-  <style>
-    body { background-color: #f1f5f9; color: #1e293b; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 15px; }
-    .main-card { background: white; max-width: 420px; width: 100%; border-radius: 20px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-    .app-title { font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
-    
-    #feedback { min-height: 28px; margin-bottom: 12px; font-size: 14px; font-weight: 700; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
-    .feed-pill { padding: 6px 15px; border-radius: 12px; display: inline-block; width: 100%; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+  <title>Temple Street ERP - Biometric Kiosk</title>
 
-    .camera-wrap { position: relative; width: 100%; aspect-ratio: 4/3; margin: 0 auto 15px auto; border-radius: 16px; overflow: hidden; background: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); }
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); }
-    .status-pill { position: absolute; top: 12px; right: 12px; padding: 4px 10px; border-radius: 8px; font-size: 10px; font-weight: 700; z-index: 20; letter-spacing: 0.5px; backdrop-filter: blur(4px); }
-    .bg-secondary { background: rgba(100, 116, 139, 0.8) !important; color: white; }
-    .bg-success { background: rgba(16, 185, 129, 0.8) !important; color: white; }
-    .form-select, .form-control { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; font-size: 15px; color: #334155; font-weight: 600; text-align: center; box-shadow: none; transition: all 0.2s; }
-    .form-select:focus, .form-control:focus { border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1); outline: none; }
-    .btn-punch { background: #0284c7; color: white; border: none; padding: 14px; width: 100%; font-weight: 700; border-radius: 12px; letter-spacing: 0.5px; font-size: 15px; transition: 0.2s; }
-    .btn-punch:hover:not(:disabled) { background: #0369a1; transform: translateY(-1px); color: white; }
-    .btn-punch:disabled { background: #cbd5e1; cursor: not-allowed; color: #64748b; }
-    #detectingBox { font-size: 13px; font-weight: 700; min-height: 20px; margin-bottom: 10px; }
-    .alert-dark { background-color: #f1f5f9; border: 1px solid #e2e8f0; color: #475569; border-radius: 12px; font-weight: 500; }
-    .alert-success { background-color: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 12px; font-weight: 600; }
-    .verified-badge { background: #10b981; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px; display: inline-block; }
+  <!-- Typography: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+
+  <!-- face-api.js Core -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+  <!-- 🚀 GreenSock (GSAP v3) Animation Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+
+  <style>
+    :root {
+      --brand-dark: #090d16;
+      --brand-surface: #111827;
+      --hud-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background-color: var(--brand-dark);
+      color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    .kiosk-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--brand-surface);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      position: relative;
+    }
+
+    /* Biometric Camera Viewport */
+    .camera-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      margin: 14px auto 16px;
+      border: 3px solid #334155;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #000000;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.3s ease;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scaleX(-1);
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+      pointer-events: none;
+    }
+
+    /* Top HUD Pills */
+    .status-pill {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      z-index: 20;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .bg-gps-active {
+      background: rgba(16, 185, 129, 0.85);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+    }
+
+    .bg-gps-offline {
+      background: rgba(100, 116, 139, 0.85);
+      color: #ffffff;
+    }
+
+    /* Scanning Radar Line Overlay */
+    .scan-radar-line {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent 0%, var(--hud-cyan) 50%, transparent 100%);
+      box-shadow: 0 0 15px var(--hud-cyan);
+      opacity: 0;
+      z-index: 15;
+      pointer-events: none;
+    }
+
+    /* Verified Staff Stamp */
+    .verified-badge {
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-punch {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: white;
+      border: none;
+      padding: 14px 20px;
+      width: 100%;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(2, 132, 199, 0.3);
+      transition: all 0.2s;
+    }
+
+    .btn-punch:hover:not(:disabled) {
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(2, 132, 199, 0.4);
+    }
+
+    .btn-punch:disabled {
+      background: #1e293b;
+      color: #64748b;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    .form-control, .form-select {
+      background-color: #0f172a !important;
+      border: 1.5px solid #334155;
+      color: #f8fafc !important;
+      font-weight: 700;
+      font-size: 14px;
+      border-radius: 12px;
+      padding: 11px 14px;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+      border-color: var(--hud-cyan);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+    }
+
+    .feed-pill {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 800;
+    }
   </style>
 </head>
 
 <body>
-  <div class="main-card">
-    <div class="app-title text-sky-600">Temple Street ERP</div>
+
+  <div class="kiosk-card" id="kioskContainer">
     
-    <div id="feedback"></div>
-    <div id="detectingBox"></div>
-    
-    <div class="camera-wrap">
-      <div id="gpsPill" class="status-pill bg-secondary">GPS: OFFLINE</div>
+    <!-- Top Branding & Status Indicator -->
+    <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+      <div class="text-start">
+        <h5 class="fw-bold mb-0 text-white tracking-tight">TEMPLE STREET</h5>
+        <span class="text-secondary small font-monospace" style="font-size: 10px;">SMART FACIAL ATTENDANCE KIOSK</span>
+      </div>
+      <span class="badge rounded-pill bg-dark border border-secondary text-secondary" style="font-size: 10px;">
+        <i class="bi bi-cpu me-1 text-info"></i>AI 0.48
+      </span>
+    </div>
+
+    <!-- Active Detection & Greeting Container -->
+    <div id="detectingBox" class="my-2" style="min-height: 38px;"></div>
+
+    <!-- Camera Viewport with Scanner Overlay -->
+    <div class="camera-wrap" id="cameraFrame">
+      <div id="gpsPill" class="status-pill bg-gps-offline">GPS: OFFLINE</div>
+      <div id="scanLine" class="scan-radar-line"></div>
       <video id="video" autoplay muted playsinline></video>
       <canvas id="overlay"></canvas>
     </div>
-    
-    <div id="aiMsg" class="alert alert-dark py-2 small mb-3">⏳ Connecting to Database...</div>
-    
-    <select id="outlet" class="form-select mb-3">
+
+    <!-- System Status Bar -->
+    <div id="aiMsg" class="alert alert-dark py-2 px-3 small mb-3 border-secondary-subtle text-secondary font-monospace" style="font-size: 11px;">
+      ⏳ Connecting to Database...
+    </div>
+
+    <!-- Store Location Selector -->
+    <select id="outlet" class="form-select mb-2 text-center">
       <option value="Ashok Nagar">Ashok Nagar</option>
       <option value="ORN">ORN</option>
       <option value="Naraina">Naraina</option>
     </select>
-    
+
+    <!-- Manual ID Fallback Input -->
     <div class="d-flex gap-2 mb-3">
-      <input type="text" id="empID" class="form-control mb-0" 
-             placeholder="Show Face or Enter ID" 
-             oninput="this.value = this.value.toUpperCase();">
-      <button class="btn btn-secondary px-3" onclick="resetScanner()" style="border-radius: 12px; font-weight: bold; background: #64748b; border: none;">✖</button>
+      <input type="text" id="empID" class="form-control text-center font-monospace"
+             placeholder="SHOW FACE OR ENTER ID"
+             oninput="this.value = this.value.toUpperCase();"
+             style="border: 1.5px solid #475569; letter-spacing: 1px;">
+      <button class="btn btn-secondary px-3" onclick="resetScanner()" style="border-radius: 12px; font-weight: bold; background: #334155; border: none;">✕</button>
     </div>
-    
-    <button id="punchBtn" class="btn btn-punch" onclick="handleAttendance()" disabled>PUNCH ATTENDANCE</button>
+
+    <!-- Manual Punch Trigger Button -->
+    <button id="punchBtn" class="btn btn-punch" onclick="handleAttendance()" disabled>
+      RECORD ATTENDANCE
+    </button>
+
+    <!-- Real-time Feedback & Result Bar -->
+    <div id="feedback" class="mt-3" style="min-height: 32px;"></div>
   </div>
 
+  <!-- 🔥 MODULAR FIREBASE CLIENT SDK (LOCAL MEMORY CACHE) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-    
+
     const firebaseConfig = { databaseURL: "https://temple-street-erp-default-rtdb.firebaseio.com/" };
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window.firebaseDb = db; 
+    window.firebaseDb = db;
 
     const connectedRef = ref(db, ".info/connected");
     onValue(connectedRef, (snap) => {
@@ -100,37 +278,37 @@
     onValue(ref(db, 'staff'), (snapshot) => {
       try {
         const data = snapshot.val();
-        if(!data) {
-           document.getElementById('aiMsg').innerText = "⚠️ DB is empty. Please run sync script in backend.";
-           return;
+        if (!data) {
+          document.getElementById('aiMsg').innerText = "⚠️ DB is empty. Run sync script in backend.";
+          return;
         }
-        
+
         const labeledDescriptors = [];
-        window.staffMap = {}; 
+        window.staffMap = {};
         let validFacesCount = 0;
-        
+
         for (let empId in data) {
           if (data[empId].faceCode) {
             window.staffMap[empId] = { name: data[empId].name || "Staff", outlet: data[empId].outlet || "" };
             let rawCode = data[empId].faceCode;
             let floatArr;
             try {
-                if (typeof rawCode === 'string') floatArr = new Float32Array(JSON.parse(rawCode));
-                else if (Array.isArray(rawCode)) floatArr = new Float32Array(rawCode);
-                else floatArr = new Float32Array(Object.values(rawCode));
-                
-                if(floatArr.length === 128) {
-                    labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(empId, [floatArr]));
-                    validFacesCount++;
-                }
-            } catch(parseErr) {}
+              if (typeof rawCode === 'string') floatArr = new Float32Array(JSON.parse(rawCode));
+              else if (Array.isArray(rawCode)) floatArr = new Float32Array(rawCode);
+              else floatArr = new Float32Array(Object.values(rawCode));
+
+              if (floatArr.length === 128) {
+                labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(empId, [floatArr]));
+                validFacesCount++;
+              }
+            } catch(e) {}
           }
         }
-        
+
         if (labeledDescriptors.length > 0) {
-          window.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.48); 
+          window.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.48);
           const aiMsg = document.getElementById('aiMsg');
-          aiMsg.className = "alert alert-success py-2 small mb-3";
+          aiMsg.className = "alert alert-success py-2 px-3 small mb-3 font-monospace";
           aiMsg.innerHTML = `✅ DB Ready (${validFacesCount} faces) | AI Active`;
         }
       } catch (err) {}
@@ -147,26 +325,28 @@
     };
   </script>
 
+  <!-- 🚀 MAIN CLIENT-SIDE LOGIC WITH GSAP ANIMATIONS -->
   <script>
-    // 🔥 GOOGLE API ENDPOINT 🔥
-    const GOOGLE_API_URL = MAIN_SYSTEM_URL;
+    // 🔥 YOUR APPS SCRIPT WEB APP DEPLOYMENT URL
+    const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
 
     const video = document.getElementById('video');
     const overlay = document.getElementById('overlay');
     let userPos = { lat: 0, lng: 0 };
     let isIdentifying = false;
     let punchTimer;
-    let lastDetectedMood = "😐"; 
+    let lastDetectedMood = "😐";
+    let scanAnimation = null;
 
     window.onload = async () => {
-      // System ko decide karne do ki aage badhna hai ya nahi
-      if (window.location.search.includes('mode=')) return;
+      // 🚀 GSAP Kiosk Card Entrance Animation
+      gsap.from("#kioskContainer", { y: 25, opacity: 0, duration: 0.6, ease: "power2.out" });
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
-        video.onloadedmetadata = () => { video.play(); }; 
-        
+        video.onloadedmetadata = () => { video.play(); };
+
         document.getElementById('aiMsg').innerText = "⏳ Loading AI Engine...";
 
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
@@ -174,37 +354,71 @@
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL) 
+          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
         ]);
-        
+
         document.getElementById('punchBtn').disabled = false;
-        
+
         startTracking();
         startGps();
-        startAutoIdentification(); 
-      } catch (e) { 
-        document.getElementById('aiMsg').innerHTML = "❌ <b>Camera Denied.</b> Please allow camera access."; 
+        startAutoIdentification();
+      } catch (e) {
+        document.getElementById('aiMsg').innerHTML = "❌ <b>Camera Access Denied.</b> Please allow permissions.";
       }
     };
 
     window.resetScanner = () => {
-      if(punchTimer) clearTimeout(punchTimer);
+      if (punchTimer) clearTimeout(punchTimer);
       document.getElementById('empID').value = "";
       document.getElementById('empID').readOnly = false;
       document.getElementById('detectingBox').innerHTML = "";
-      document.getElementById('feedback').innerHTML = ""; 
-      isIdentifying = false; 
+      document.getElementById('feedback').innerHTML = "";
+      triggerScanningRadar(false);
+      isIdentifying = false;
     };
 
     function startTracking() {
       const displaySize = { width: video.videoWidth || 400, height: video.videoHeight || 300 };
       faceapi.matchDimensions(overlay, displaySize);
+
       setInterval(async () => {
         const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
         const resized = faceapi.resizeResults(detections, displaySize);
         overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
         faceapi.draw.drawDetections(overlay, resized);
+
+        // 🚀 GSAP Scanning Radar Trigger: When a face enters the camera frame
+        if (detections.length > 0 && !scanAnimation) {
+          triggerScanningRadar(true);
+        } else if (detections.length === 0 && scanAnimation) {
+          triggerScanningRadar(false);
+        }
       }, 100);
+    }
+
+    // 🚀 Biometric Pulse / Radar Line Animation via GSAP
+    function triggerScanningRadar(active) {
+      const scanLine = document.getElementById('scanLine');
+      const cameraFrame = document.getElementById('cameraFrame');
+
+      if (active) {
+        gsap.to(cameraFrame, { borderColor: "#0ea5e9", duration: 0.4 });
+        gsap.set(scanLine, { opacity: 0.8, top: "0%" });
+        scanAnimation = gsap.to(scanLine, {
+          top: "95%",
+          duration: 1.4,
+          repeat: -1,
+          yoyo: true,
+          ease: "power1.inOut"
+        });
+      } else {
+        if (scanAnimation) {
+          scanAnimation.kill();
+          scanAnimation = null;
+        }
+        gsap.to(scanLine, { opacity: 0, duration: 0.3 });
+        gsap.to(cameraFrame, { borderColor: "#334155", duration: 0.4 });
+      }
     }
 
     function startAutoIdentification() {
@@ -214,47 +428,48 @@
         try {
           const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
             .withFaceLandmarks()
-            .withFaceExpressions() 
+            .withFaceExpressions()
             .withFaceDescriptor();
-          
+
           if (detection) {
-            if (document.activeElement.id === 'empID') return; 
-            if (document.getElementById('empID').value !== "") return; 
+            if (document.activeElement.id === 'empID') return;
+            if (document.getElementById('empID').value !== "") return;
 
             isIdentifying = true;
-            document.getElementById('detectingBox').innerHTML = "🔍 <span style='color:#f59e0b'>SCANNING FACE...</span>";
+            document.getElementById('detectingBox').innerHTML = "🔍 <span class='text-warning font-monospace small font-bold'>SCANNING FACE...</span>";
             document.getElementById('feedback').innerHTML = "";
-            
-            if(window.faceMatcher) {
-                const result = window.faceMatcher.findBestMatch(detection.descriptor);
-                
-                if (result.label !== 'unknown' && result.distance <= 0.48) {
-                    const empId = result.label;
-                    const info = window.staffMap[empId] || { name: "", outlet: "" };
 
-                    let moodEmoji = "😐 NORMAL";
-                    if(detection.expressions) {
-                        const exps = detection.expressions;
-                        const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
-                        const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
-                        moodEmoji = moodMap[dominant] || "😐 NORMAL";
-                        lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐"; 
-                    }
+            if (window.faceMatcher) {
+              const result = window.faceMatcher.findBestMatch(detection.descriptor);
 
-                    document.getElementById('empID').value = empId;
-                    document.getElementById('empID').readOnly = true; 
-                    if(info.outlet) document.getElementById('outlet').value = info.outlet;
+              if (result.label !== 'unknown' && result.distance <= 0.48) {
+                const empId = result.label;
+                const info = window.staffMap[empId] || { name: "", outlet: "" };
 
-                    document.getElementById('detectingBox').innerHTML = `✅ <span class='verified-badge'>HI, ${info.name} | ${moodEmoji}</span>`;
-                    
-                    punchTimer = setTimeout(() => { handleAttendance(); }, 1500);
-                } else {
-                    document.getElementById('detectingBox').innerHTML = "❓ <span style='color:#ef4444'>NOT RECOGNIZED</span>";
-                    isIdentifying = false; 
+                let moodEmoji = "😐 NORMAL";
+                if (detection.expressions) {
+                  const exps = detection.expressions;
+                  const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
+                  const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
+                  moodEmoji = moodMap[dominant] || "😐 NORMAL";
+                  lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
                 }
-            } else {
-                document.getElementById('detectingBox').innerHTML = "⏳ <span style='color:#f59e0b'>WAITING FOR DB...</span>";
+
+                document.getElementById('empID').value = empId;
+                document.getElementById('empID').readOnly = true;
+
+                // 🚀 GSAP Elastic Pop Stamp for Verified Staff
+                document.getElementById('detectingBox').innerHTML = `✅ <span class='verified-badge'><i class='bi bi-check-circle-fill'></i> HI, ${info.name} | ${moodEmoji}</span>`;
+                gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.5, ease: "elastic.out(1.2, 0.5)" });
+
+                punchTimer = setTimeout(() => { handleAttendance(); }, 1400);
+              } else {
+                document.getElementById('detectingBox').innerHTML = "❓ <span class='text-danger font-monospace small font-bold'>NOT RECOGNIZED</span>";
                 isIdentifying = false;
+              }
+            } else {
+              document.getElementById('detectingBox').innerHTML = "⏳ <span class='text-warning font-monospace small'>WAITING FOR DB...</span>";
+              isIdentifying = false;
             }
           } else {
             const detectingText = document.getElementById('detectingBox').innerText;
@@ -262,85 +477,105 @@
             const isNotPunching = !document.getElementById('punchBtn').disabled;
 
             if (detectingText.includes("NOT RECOGNIZED") || (isAIControlled && isNotPunching)) {
-                window.resetScanner();
+              window.resetScanner();
             }
           }
         } catch (err) {
           isIdentifying = false;
         }
-      }, 1500); 
+      }, 1500);
     }
 
     function startGps() {
       navigator.geolocation.watchPosition(pos => {
         userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        document.getElementById('gpsPill').className = "status-pill bg-success";
-        document.getElementById('gpsPill').innerText = "GPS: ACTIVE";
+        const gpsPill = document.getElementById('gpsPill');
+        gpsPill.className = "status-pill bg-gps-active";
+        gpsPill.innerText = "GPS: ACTIVE";
+        gsap.fromTo(gpsPill, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: "back.out(2)" });
       }, null, { enableHighAccuracy: true });
     }
 
     async function handleAttendance() {
       const id = document.getElementById('empID').value.trim().toUpperCase();
-      if(!id) return alert("Please show your face or enter ID manually");
+      if (!id) return alert("Please show your face or enter ID manually");
 
       document.getElementById('punchBtn').disabled = true;
-      document.getElementById('feedback').innerHTML = "<span class='feed-pill' style='background:#fef3c7; color:#d97706; border: 1px solid #fde68a;'>⏳ Saving Punch...</span>";
-      
-      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-      if(!detection) { 
-          document.getElementById('detectingBox').innerHTML = "❌ <span style='color:#ef4444'>Face lost! Step back in frame.</span>";
-          setTimeout(() => { window.resetScanner(); }, 2000);
-          document.getElementById('punchBtn').disabled = false; 
-          document.getElementById('feedback').innerHTML = ""; 
-          return; 
-      }
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-      canvas.getContext('2d').drawImage(video, 0, 0);
-      
-      if(window.recordInstantPunch) window.recordInstantPunch(id);
+      document.getElementById('feedback').innerHTML = "<span class='feed-pill bg-secondary text-white'>⏳ Recording Punch...</span>";
 
-      // 🔥 NAYA FETCH LOGIC (DIRECT COMMUNICATION WITH GOOGLE SCRIPT) 🔥
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!detection) {
+        document.getElementById('detectingBox').innerHTML = "<span class='text-danger small font-bold'>Face lost! Step back into frame.</span>";
+        setTimeout(() => { window.resetScanner(); }, 2000);
+        document.getElementById('punchBtn').disabled = false;
+        document.getElementById('feedback').innerHTML = "";
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+
+      // Tactile button bounce on punch
+      gsap.to("#punchBtn", { scale: 0.96, duration: 0.1, yoyo: true, repeat: 1 });
+
       const payloadData = {
-        empID: id, outlet: document.getElementById('outlet').value,
-        lat: userPos.lat, lng: userPos.lng,
+        empID: id,
+        outlet: document.getElementById('outlet').value,
+        lat: userPos.lat,
+        lng: userPos.lng,
         faceDescriptor: Array.from(detection.descriptor),
         photo: canvas.toDataURL('image/jpeg', 0.5),
-        mood: lastDetectedMood 
+        mood: lastDetectedMood
       };
 
       fetch(GOOGLE_API_URL, {
-        redirect: "follow",
         method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "PUNCH_ATTENDANCE", payload: payloadData })
       })
       .then(response => response.json())
       .then(res => {
         document.getElementById('punchBtn').disabled = false;
-        
-        let msg = res.status || "Unknown Response";
-        let isSuccess = msg.toLowerCase().includes("success") || msg.toLowerCase().includes("register");
-        let isAlready = msg.includes("⚠️");
 
-        if(isSuccess) {
-            document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#ecfdf5; color:#059669; border: 1px solid #a7f3d0;'>✅ ${msg}</span>`;
-            if(window.registerNewFaceToFirebase && !window.staffMap[id]) {
-                window.registerNewFaceToFirebase(id, detection.descriptor, document.getElementById('outlet').value);
-            }
+        let msg = String(res.status || res || "");
+        let isSuccess = msg.toUpperCase().includes("SUCCESS") || msg.includes("Recorded") || msg.includes("Punch");
+        let isAlready = msg.includes("⚠️") || msg.toUpperCase().includes("ALREADY");
+
+        if (isSuccess) {
+          let isPunchOut = msg.includes("Punch Out");
+          let pillStyle = isPunchOut
+            ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;"
+            : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
+
+          document.getElementById('feedback').innerHTML = `<span class='feed-pill shadow-lg' style='${pillStyle}'>${msg}</span>`;
+          gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
+
+          if (window.recordInstantPunch) window.recordInstantPunch(id);
+          if (window.registerNewFaceToFirebase && !window.staffMap[id]) {
+            window.registerNewFaceToFirebase(id, detection.descriptor, document.getElementById('outlet').value);
+          }
+
+          setTimeout(() => {
+            gsap.to("#feedback .feed-pill", { opacity: 0, y: -10, duration: 0.3, onComplete: window.resetScanner });
+          }, 3500);
+
         } else if (isAlready) {
-            document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#fff7ed; color:#ea580c; border: 1px solid #fed7aa;'>${msg}</span>`;
-        } else {
-            document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#fef2f2; color:#dc2626; border: 1px solid #fecaca;'>❌ ${msg}</span>`;
-        }
+          document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-warning text-dark border border-warning shadow'>${msg}</span>`;
+          gsap.from("#feedback .feed-pill", { x: -8, duration: 0.1, repeat: 3, yoyo: true });
+          setTimeout(() => { window.resetScanner(); }, 3500);
 
-        setTimeout(() => { window.resetScanner(); }, 3500); 
+        } else {
+          document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-danger text-white border border-danger shadow'>${msg}</span>`;
+          setTimeout(() => { window.resetScanner(); }, 3500);
+        }
       })
       .catch(error => {
-        console.error(error);
         document.getElementById('punchBtn').disabled = false;
-        document.getElementById('feedback').innerHTML = `<span class='feed-pill' style='background:#fef2f2; color:#dc2626; border: 1px solid #fecaca;'>❌ Server Error, Try Again</span>`;
+        document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-danger text-white border border-danger'>❌ Network Error, Try Again</span>`;
         setTimeout(() => { window.resetScanner(); }, 3000);
       });
     }
