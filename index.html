@@ -368,14 +368,15 @@
     };
 
     window.resetScanner = () => {
-      if (punchTimer) clearTimeout(punchTimer);
-      document.getElementById('empID').value = "";
-      document.getElementById('empID').readOnly = false;
-      document.getElementById('detectingBox').innerHTML = "";
-      document.getElementById('feedback').innerHTML = "";
-      triggerScanningRadar(false);
-      isIdentifying = false;
-    };
+  if (punchTimer) clearTimeout(punchTimer);
+  resetBlinkTracker(); // 👈 YEH LINE ADD KAREIN
+  document.getElementById('empID').value = "";
+  document.getElementById('empID').readOnly = false;
+  document.getElementById('detectingBox').innerHTML = "";
+  document.getElementById('feedback').innerHTML = "";
+  triggerScanningRadar(false);
+  isIdentifying = false;
+};
 
     function startTracking() {
       const displaySize = { width: video.videoWidth || 400, height: video.videoHeight || 300 };
@@ -420,71 +421,155 @@
         gsap.to(cameraFrame, { borderColor: "#334155", duration: 0.4 });
       }
     }
+// ==============================================================
+// 👁️ ANTI-SPOOFING: REAL-TIME EYE BLINK DETECTION (EAR)
+// ==============================================================
+let isLiveVerified = false;
+let blinkTracker = { eyeWasOpen: false, eyeClosed: false, blinkSuccess: false };
 
+function getPointDistance(p1, p2) {
+  return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
+
+function calculateEAR(eyeLandmarks) {
+  const v1 = getPointDistance(eyeLandmarks[1], eyeLandmarks[5]);
+  const v2 = getPointDistance(eyeLandmarks[2], eyeLandmarks[4]);
+  const h = getPointDistance(eyeLandmarks[0], eyeLandmarks[3]);
+  if (h === 0) return 0.3;
+  return (v1 + v2) / (2.0 * h);
+}
+
+function checkEyeBlink(landmarks) {
+  if (!landmarks) return false;
+  const leftEye = landmarks.getLeftEye();
+  const rightEye = landmarks.getRightEye();
+
+  const earLeft = calculateEAR(leftEye);
+  const earRight = calculateEAR(rightEye);
+  const avgEAR = (earLeft + earRight) / 2.0;
+
+  if (avgEAR >= 0.25) {
+    if (blinkTracker.eyeClosed) {
+      blinkTracker.blinkSuccess = true;
+    }
+    blinkTracker.eyeWasOpen = true;
+    blinkTracker.eyeClosed = false;
+  } else if (avgEAR <= 0.20 && blinkTracker.eyeWasOpen) {
+    blinkTracker.eyeClosed = true;
+  }
+
+  return blinkTracker.blinkSuccess;
+}
+
+function resetBlinkTracker() {
+  isLiveVerified = false;
+  blinkTracker = { eyeWasOpen: false, eyeClosed: false, blinkSuccess: false };
+}
     function startAutoIdentification() {
-      setInterval(async () => {
-        if (isIdentifying) return;
+  setInterval(async () => {
+    if (isIdentifying) return;
 
-        try {
-          const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-            .withFaceLandmarks()
-            .withFaceExpressions()
-            .withFaceDescriptor();
+    try {
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
+        .withFaceExpressions()
+        .withFaceDescriptor();
 
-          if (detection) {
-            if (document.activeElement.id === 'empID') return;
-            if (document.getElementById('empID').value !== "") return;
+      if (detection) {
+        if (document.activeElement.id === 'empID') return;
+        if (document.getElementById('empID').value !== "") return;
+
+        if (window.faceMatcher) {
+          const result = window.faceMatcher.findBestMatch(detection.descriptor);
+
+          if (result.label !== 'unknown' && result.distance <= 0.48) {
+            const empId = result.label;
+            const info = window.staffMap[empId] || { name: "Staff", outlet: "" };
 
             isIdentifying = true;
-            document.getElementById('detectingBox').innerHTML = "🔍 <span class='text-warning font-monospace small font-bold'>SCANNING FACE...</span>";
-            document.getElementById('feedback').innerHTML = "";
+            resetBlinkTracker();
 
-            if (window.faceMatcher) {
-              const result = window.faceMatcher.findBestMatch(detection.descriptor);
+            // 1. Prompt Staff to Blink
+            document.getElementById('detectingBox').innerHTML = `
+              <div class='bg-warning-subtle text-dark border border-warning px-3 py-1.5 rounded-pill font-monospace small fw-bold d-inline-flex align-items-center gap-2'>
+                <span class='spinner-grow spinner-grow-sm text-warning'></span>
+                HI, ${info.name}! 👁️ PLEASE BLINK EYES TO PUNCH
+              </div>`;
 
-              if (result.label !== 'unknown' && result.distance <= 0.48) {
-                const empId = result.label;
-                const info = window.staffMap[empId] || { name: "", outlet: "" };
+            // 2. High-Speed Liveness Monitoring Loop (80ms)
+            let livenessAttempts = 0;
+            const livenessInterval = setInterval(async () => {
+              livenessAttempts++;
 
-                let moodEmoji = "😐 NORMAL";
-                if (detection.expressions) {
-                  const exps = detection.expressions;
-                  const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
-                  const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
-                  moodEmoji = moodMap[dominant] || "😐 NORMAL";
-                  lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
+              const liveFrame = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks();
+
+              if (liveFrame && liveFrame.landmarks) {
+                const hasBlinked = checkEyeBlink(liveFrame.landmarks);
+
+                if (hasBlinked) {
+                  clearInterval(livenessInterval);
+                  isLiveVerified = true;
+
+                  let moodEmoji = "😐 NORMAL";
+                  if (detection.expressions) {
+                    const exps = detection.expressions;
+                    const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
+                    const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
+                    moodEmoji = moodMap[dominant] || "😐 NORMAL";
+                    lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
+                  }
+
+                  document.getElementById('empID').value = empId;
+                  document.getElementById('empID').readOnly = true;
+
+                  // ✅ Live Verified Badge
+                  document.getElementById('detectingBox').innerHTML = `
+                    <span class='verified-badge' style='background: linear-gradient(135deg, #059669 0%, #10b981 100%);'>
+                      <i class='bi bi-shield-check'></i> LIVE VERIFIED: HI, ${info.name} | ${moodEmoji}
+                    </span>`;
+                  gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.4, ease: "elastic.out(1.2, 0.5)" });
+
+                  // Safe Punch Execution
+                  setTimeout(() => { handleAttendance(); }, 600);
+                  return;
                 }
-
-                document.getElementById('empID').value = empId;
-                document.getElementById('empID').readOnly = true;
-
-                // 🚀 GSAP Elastic Pop Stamp for Verified Staff
-                document.getElementById('detectingBox').innerHTML = `✅ <span class='verified-badge'><i class='bi bi-check-circle-fill'></i> HI, ${info.name} | ${moodEmoji}</span>`;
-                gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.5, ease: "elastic.out(1.2, 0.5)" });
-
-                punchTimer = setTimeout(() => { handleAttendance(); }, 1400);
-              } else {
-                document.getElementById('detectingBox').innerHTML = "❓ <span class='text-danger font-monospace small font-bold'>NOT RECOGNIZED</span>";
-                isIdentifying = false;
               }
-            } else {
-              document.getElementById('detectingBox').innerHTML = "⏳ <span class='text-warning font-monospace small'>WAITING FOR DB...</span>";
-              isIdentifying = false;
-            }
-          } else {
-            const detectingText = document.getElementById('detectingBox').innerText;
-            const isAIControlled = document.getElementById('empID').readOnly;
-            const isNotPunching = !document.getElementById('punchBtn').disabled;
 
-            if (detectingText.includes("NOT RECOGNIZED") || (isAIControlled && isNotPunching)) {
-              window.resetScanner();
-            }
+              // ❌ 3.6s without natural blink = Static Photo / Spoof Blocked!
+              if (livenessAttempts >= 45) {
+                clearInterval(livenessInterval);
+                document.getElementById('detectingBox').innerHTML = `
+                  <div class='bg-danger text-white px-3 py-1.5 rounded-pill font-monospace small fw-bold'>
+                    ❌ SPOOF REJECTED: LIVE PERSON NOT DETECTED (PHOTO BLOCKED)
+                  </div>`;
+                gsap.fromTo("#detectingBox", { x: -10 }, { x: 10, repeat: 3, yoyo: true, duration: 0.08 });
+
+                setTimeout(() => {
+                  window.resetScanner();
+                }, 2500);
+              }
+            }, 80);
+
+          } else {
+            document.getElementById('detectingBox').innerHTML = "❓ <span class='text-danger font-monospace small font-bold'>NOT RECOGNIZED</span>";
+            isIdentifying = false;
           }
-        } catch (err) {
-          isIdentifying = false;
         }
-      }, 1500);
+      } else {
+        const detectingText = document.getElementById('detectingBox').innerText;
+        const isAIControlled = document.getElementById('empID').readOnly;
+        const isNotPunching = !document.getElementById('punchBtn').disabled;
+
+        if (detectingText.includes("NOT RECOGNIZED") || (isAIControlled && isNotPunching)) {
+          window.resetScanner();
+        }
+      }
+    } catch (err) {
+      isIdentifying = false;
     }
+  }, 1200);
+}
 
     function startGps() {
       navigator.geolocation.watchPosition(pos => {
