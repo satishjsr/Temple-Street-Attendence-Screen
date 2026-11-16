@@ -249,9 +249,7 @@
     <button id="punchBtn" class="btn btn-punch" onclick="handleAttendance()" disabled>
       RECORD ATTENDANCE
     </button>
-<button type="button" id="regFaceBtn" class="btn btn-outline-info w-100 mt-2 py-2 fw-bold font-monospace" style="font-size: 12px; border-radius: 12px; border-width: 1.5px;" onclick="handleKioskFaceRegister()">
-  📸 REGISTER NEW FACE (नया चेहरा रजिस्टर करें)
-</button>
+
     <!-- Real-time Feedback & Result Bar -->
     <div id="feedback" class="mt-3" style="min-height: 32px;"></div>
   </div>
@@ -463,74 +461,6 @@
       triggerScanningRadar(false);
       isIdentifying = false;
     }
-
-  // ==============================================================
-// 📸 1-CLICK KIOSK NEW FACE REGISTRATION ENGINE (NATIVE RUNNER)
-// ==============================================================
-async function handleKioskFaceRegister() {
-  const empInput = document.getElementById('empID');
-  let id = empInput.value.trim().toUpperCase();
-
-  if (!id) {
-    id = prompt("Kripya Employee ID enter karein (e.g. TS057 ya TS058):");
-    if (!id) return;
-    empInput.value = id.trim().toUpperCase();
-  }
-  id = id.trim().toUpperCase();
-
-  const feedback = document.getElementById('feedback');
-  feedback.innerHTML = "<span class='feed-pill bg-warning text-dark'>🔍 Centering face in camera...</span>";
-
-  // 1. Detect Face & Descriptor
-  const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224 }))
-    .withFaceLandmarks()
-    .withFaceDescriptor();
-
-  if (!detection) {
-    alert("Face detect nahi hua! Kripya camera ke theek samne dekhein aur dobara click karein.");
-    feedback.innerHTML = "";
-    return;
-  }
-
-  feedback.innerHTML = `<span class='feed-pill bg-info text-white'>⏳ Registering face for ${id}...</span>`;
-
-  // 2. Snapshot photo from video
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 640;
-  canvas.height = video.videoHeight || 480;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  const photoBase64 = canvas.toDataURL('image/jpeg', 0.6);
-
-  const regBtn = document.getElementById('regFaceBtn');
-  if (regBtn) regBtn.disabled = true;
-
-  // 3. Direct Google Apps Script Execution (No fetch / No SCRIPT_URL error)
-  google.script.run
-    .withSuccessHandler(statusMsg => {
-      if (regBtn) regBtn.disabled = false;
-      statusMsg = String(statusMsg || "");
-
-      if (statusMsg.includes("SUCCESS")) {
-        feedback.innerHTML = `<span class='feed-pill bg-success text-white shadow-lg'>✅ ${statusMsg}</span>`;
-        alert(`✅ Face Registered Successfully for ${id}!\n\nAb HR Portal par 'Staff Management' me jakar 'Approve & Sync' karein, uske baad attendance lagna shuru ho jayegi.`);
-        setTimeout(() => { resetScannerUI(); }, 3000);
-      } else {
-        feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${statusMsg}</span>`;
-        alert(statusMsg);
-      }
-    })
-    .withFailureHandler(err => {
-      if (regBtn) regBtn.disabled = false;
-      feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Error: ${err.message}</span>`;
-      alert("Error: " + err.message);
-    })
-    .registerStaffFromKiosk({
-      empID: id,
-      outlet: document.getElementById('outlet').value,
-      faceDescriptor: Array.from(detection.descriptor),
-      photo: photoBase64
-    });
-}
   </script>
 </body>
 </html>
