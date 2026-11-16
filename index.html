@@ -261,31 +261,70 @@
     let isIdentifying = false;
     let scanAnimation = null;
 
-    window.onload = async () => {
-      // 🚀 Entrance GSAP Transition for the Kiosk Card
-      gsap.from("#kioskContainer", { y: 25, opacity: 0, duration: 0.6, ease: "power2.out" });
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-
-        document.getElementById('aiMsg').innerText = "✅ AI Ready | Verifying GPS...";
-        document.getElementById('punchBtn').disabled = false;
-
-        startTracking();
-        startGps();
-        startAutoIdentification();
-      } catch (e) {
-        document.getElementById('aiMsg').innerText = "❌ Camera Access Denied: " + e.message;
+    // 🚀 NAYA: Apps Script se Active Outlets dynamically load karna
+async function loadDynamicOutlets() {
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "cors",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "GET_ACTIVE_OUTLETS" })
+    });
+    
+    const resData = await response.json();
+    if (resData && resData.status === "SUCCESS" && Array.isArray(resData.outlets) && resData.outlets.length > 0) {
+      const outletSelect = document.getElementById('outlet');
+      const currentSelected = outletSelect.value;
+      
+      // Dropdown ko nayi active branches se update karein
+      outletSelect.innerHTML = "";
+      resData.outlets.forEach(outName => {
+        const opt = document.createElement("option");
+        opt.value = outName;
+        opt.textContent = outName;
+        outletSelect.appendChild(opt);
+      });
+      
+      // Agar pehle se koi selected tha aur wo nayi list mein bhi hai, toh wahi select rakhein
+      if (resData.outlets.includes(currentSelected)) {
+        outletSelect.value = currentSelected;
       }
-    };
+      console.log("✅ Outlets successfully synced:", resData.outlets);
+    }
+  } catch (err) {
+    console.warn("⚠️ Dynamic outlet fetch failed, keeping fallback list:", err);
+  }
+}
+
+window.onload = async () => {
+  // 🏢 Background mein dynamic outlets fetch karein (bina screen freeze kiye)
+  loadDynamicOutlets();
+
+  // 🚀 Entrance GSAP Transition for the Kiosk Card
+  gsap.from("#kioskContainer", { y: 25, opacity: 0, duration: 0.6, ease: "power2.out" });
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+
+    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
+
+    document.getElementById('aiMsg').innerText = "✅ AI Ready | Verifying GPS...";
+    document.getElementById('punchBtn').disabled = false;
+
+    startTracking();
+    startGps();
+    startAutoIdentification();
+  } catch (e) {
+    document.getElementById('aiMsg').innerText = "❌ Camera Access Denied: " + e.message;
+  }
+};
 
     function startTracking() {
       const displaySize = { width: video.videoWidth || 400, height: video.videoHeight || 300 };
@@ -500,6 +539,41 @@ async function handleAttendance() {
       triggerScanningRadar(false);
       isIdentifying = false;
     }
+    // 🚀 NAYA: Apps Script se Active Outlets dynamically load karna
+async function loadDynamicOutlets() {
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "cors",
+      redirect: "follow",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "GET_ACTIVE_OUTLETS" })
+    });
+    
+    const resData = await response.json();
+    if (resData && resData.status === "SUCCESS" && Array.isArray(resData.outlets) && resData.outlets.length > 0) {
+      const outletSelect = document.getElementById('outlet');
+      const currentSelected = outletSelect.value;
+      
+      // Dropdown ko nayi list se update karein
+      outletSelect.innerHTML = "";
+      resData.outlets.forEach(outName => {
+        const opt = document.createElement("option");
+        opt.value = outName;
+        opt.textContent = outName;
+        outletSelect.appendChild(opt);
+      });
+      
+      // Agar pehle se koi selected tha jo abhi bhi list mein hai, toh usko select rakhein
+      if (resData.outlets.includes(currentSelected)) {
+        outletSelect.value = currentSelected;
+      }
+      console.log("✅ Outlets successfully synced:", resData.outlets);
+    }
+  } catch (err) {
+    console.warn("⚠️ Dynamic outlet fetch failed, using fallback:", err);
+  }
+}
   </script>
 </body>
 </html>
