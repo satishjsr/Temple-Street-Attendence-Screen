@@ -385,18 +385,19 @@
       }, null, { enableHighAccuracy: true });
     }
 
-    async function handleAttendance() {
-  const id = document.getElementById('empID').value.trim().toUpperCase();
-  if (!id) return alert("Please show your face or enter ID manually");
-
-  const punchBtn = document.getElementById('punchBtn');
+   async function handleAttendance() {
+  const empInput = document.getElementById('empID');
+  const id = empInput.value.trim().toUpperCase();
   const feedback = document.getElementById('feedback');
+  const punchBtn = document.getElementById('punchBtn');
+
+  if (!id) return alert("Please show your face or enter ID manually");
 
   punchBtn.disabled = true;
   feedback.innerHTML = "<span class='feed-pill bg-secondary text-white'>⏳ Recording Punch...</span>";
 
   try {
-    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 }))
       .withFaceLandmarks()
       .withFaceDescriptor();
 
@@ -408,49 +409,74 @@
     }
 
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
     canvas.getContext('2d').drawImage(video, 0, 0);
 
-    // Apps Script Deployment Webhook URL
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw6U7iYgN0jV_aT8m0q3W5b7V9k2k0m0k0m0/exec"; // Aapka /exec URL
+    if (typeof gsap !== 'undefined') {
+      gsap.to("#punchBtn", { scale: 0.96, duration: 0.1, yoyo: true, repeat: 1 });
+    }
 
-    const response = await fetch(WEB_APP_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        action: "PUNCH_ATTENDANCE",
-        payload: {
-          empID: id,
-          outlet: document.getElementById('outlet').value,
-          lat: userPos.lat,
-          lng: userPos.lng,
-          faceDescriptor: Array.from(detection.descriptor),
-          photo: canvas.toDataURL('image/jpeg', 0.5)
+    const payload = {
+      empID: id,
+      outlet: document.getElementById('outlet').value,
+      lat: (typeof userPos !== 'undefined' && userPos && userPos.lat) ? userPos.lat : 28.6370,
+      lng: (typeof userPos !== 'undefined' && userPos && userPos.lng) ? userPos.lng : 77.1380,
+      faceDescriptor: Array.from(detection.descriptor),
+      photo: canvas.toDataURL('image/jpeg', 0.5)
+    };
+
+    // 🚀 Native Google Apps Script RPC Call (100% Secure & Zero CORS)
+    google.script.run
+      .withSuccessHandler(res => {
+        punchBtn.disabled = false;
+        res = String(res || "");
+
+        let isSuccess = res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch");
+        let isAlready = res.includes("⚠️") || res.includes("ALREADY");
+        let isNewCapture = res.includes("NAYA CHEHRA") || res.includes("CAPTURE");
+
+        if (isSuccess) {
+          let isPunchOut = res.includes("Punch Out");
+          let pillStyle = isPunchOut 
+            ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;" 
+            : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
+
+          feedback.innerHTML = `<span class='feed-pill' style='${pillStyle}'>${res}</span>`;
+          if (typeof gsap !== 'undefined') {
+            gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
+          }
+          setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 3500);
+
+        } else if (isNewCapture) {
+          feedback.innerHTML = `<span class='feed-pill bg-warning text-dark shadow-lg'>${res}</span>`;
+          alert(res + "\n\nAb HR Portal par jakar is photo ko 'Approve & Sync' karein.");
+          setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 4000);
+
+        } else if (isAlready) {
+          feedback.innerHTML = `<span class='feed-pill bg-warning text-dark'>${res}</span>`;
+          if (typeof gsap !== 'undefined') {
+            gsap.fromTo("#feedback .feed-pill", { x: -8 }, { x: 8, duration: 0.1, repeat: 3, yoyo: true });
+          }
+          setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 3500);
+
+        } else {
+          feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${res}</span>`;
+          alert(res);
+          setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 3500);
         }
       })
-    });
-
-    const data = await response.json();
-    punchBtn.disabled = false;
-    const res = data.status || "";
-
-    if (res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch")) {
-      feedback.innerHTML = `<span class='feed-pill bg-success text-white'>${res}</span>`;
-      setTimeout(resetScannerUI, 3500);
-    } else if (res.includes("NAYA CHEHRA") || res.includes("CAPTURE")) {
-      feedback.innerHTML = `<span class='feed-pill bg-warning text-dark'>${res}</span>`;
-      alert(res);
-      setTimeout(resetScannerUI, 4000);
-    } else {
-      feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${res}</span>`;
-      alert(res);
-      setTimeout(resetScannerUI, 3500);
-    }
+      .withFailureHandler(err => {
+        punchBtn.disabled = false;
+        feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Server Error: ${err.message}</span>`;
+        alert("Server Error: " + err.message);
+      })
+      .processAttendance(payload);
 
   } catch (err) {
     punchBtn.disabled = false;
     feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Error: ${err.message}</span>`;
-    alert("Connection Error: " + err.message);
+    alert("Camera/App Error: " + err.message);
   }
 }
 
