@@ -386,18 +386,17 @@
     }
 
     async function handleAttendance() {
-  const empInput = document.getElementById('empID');
-  const id = empInput.value.trim().toUpperCase();
-  const feedback = document.getElementById('feedback');
-  const punchBtn = document.getElementById('punchBtn');
-
+  const id = document.getElementById('empID').value.trim().toUpperCase();
   if (!id) return alert("Please show your face or enter ID manually");
 
+  const punchBtn = document.getElementById('punchBtn');
+  const feedback = document.getElementById('feedback');
+
   punchBtn.disabled = true;
-  feedback.innerHTML = "⏳ Recording Punch...";
+  feedback.innerHTML = "<span class='feed-pill bg-secondary text-white'>⏳ Recording Punch...</span>";
 
   try {
-    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 }))
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks()
       .withFaceDescriptor();
 
@@ -413,78 +412,45 @@
     canvas.height = video.videoHeight;
     canvas.getContext('2d').drawImage(video, 0, 0);
 
-    // Tactile button bounce on punch submission
-    if (typeof gsap !== 'undefined') {
-      gsap.to("#punchBtn", { scale: 0.96, duration: 0.1, yoyo: true, repeat: 1 });
-    }
+    // Apps Script Deployment Webhook URL
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw6U7iYgN0jV_aT8m0q3W5b7V9k2k0m0k0m0/exec"; // Aapka /exec URL
 
-    const payload = {
-      empID: id,
-      outlet: document.getElementById('outlet').value,
-      lat: (typeof userPos !== 'undefined' && userPos && userPos.lat) ? userPos.lat : 28.6370,
-      lng: (typeof userPos !== 'undefined' && userPos && userPos.lng) ? userPos.lng : 77.1380,
-      faceDescriptor: Array.from(detection.descriptor),
-      photo: canvas.toDataURL('image/jpeg', 0.5)
-    };
-
-    google.script.run
-      .withSuccessHandler(res => {
-        punchBtn.disabled = false;
-        res = String(res || "");
-
-        let isSuccess = res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch");
-        let isAlready = res.includes("⚠️") || res.includes("ALREADY");
-        let isNewCapture = res.includes("NAYA CHEHRA") || res.includes("CAPTURE HO GAYA");
-
-        if (isSuccess) {
-          let isPunchOut = res.includes("Punch Out");
-          let pillStyle = isPunchOut 
-            ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;" 
-            : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
-
-          feedback.innerHTML = `<span class='feed-pill' style='${pillStyle}'>${res}</span>`;
-          if (typeof gsap !== 'undefined') {
-            gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
-          }
-
-          setTimeout(() => {
-            if (typeof gsap !== 'undefined') {
-              gsap.to("#feedback .feed-pill", { opacity: 0, y: -10, duration: 0.3, onComplete: resetScannerUI });
-            } else {
-              resetScannerUI();
-            }
-          }, 3500);
-
-        } else if (isNewCapture) {
-          // 🌟 Naye Staff ka First Face Capture Response
-          feedback.innerHTML = `<span class='feed-pill bg-warning text-dark shadow-lg'>${res}</span>`;
-          alert(res + "\n\nAb HR Portal par 'Staff Management' me jakar is photo ko Approve karein.");
-          setTimeout(() => { resetScannerUI(); }, 4000);
-
-        } else if (isAlready) {
-          feedback.innerHTML = `<span class='feed-pill bg-warning text-dark'>${res}</span>`;
-          if (typeof gsap !== 'undefined') {
-            gsap.fromTo("#feedback .feed-pill", { x: -8 }, { x: 8, duration: 0.1, repeat: 3, yoyo: true });
-          }
-          setTimeout(() => { resetScannerUI(); }, 3500);
-
-        } else {
-          feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${res}</span>`;
-          alert(res);
-          setTimeout(() => { resetScannerUI(); }, 3500);
+    const response = await fetch(WEB_APP_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "PUNCH_ATTENDANCE",
+        payload: {
+          empID: id,
+          outlet: document.getElementById('outlet').value,
+          lat: userPos.lat,
+          lng: userPos.lng,
+          faceDescriptor: Array.from(detection.descriptor),
+          photo: canvas.toDataURL('image/jpeg', 0.5)
         }
       })
-      .withFailureHandler(err => {
-        punchBtn.disabled = false;
-        feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Server Error: ${err.message}</span>`;
-        alert("Server Error: " + err.message);
-      })
-      .processAttendance(payload);
+    });
+
+    const data = await response.json();
+    punchBtn.disabled = false;
+    const res = data.status || "";
+
+    if (res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch")) {
+      feedback.innerHTML = `<span class='feed-pill bg-success text-white'>${res}</span>`;
+      setTimeout(resetScannerUI, 3500);
+    } else if (res.includes("NAYA CHEHRA") || res.includes("CAPTURE")) {
+      feedback.innerHTML = `<span class='feed-pill bg-warning text-dark'>${res}</span>`;
+      alert(res);
+      setTimeout(resetScannerUI, 4000);
+    } else {
+      feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${res}</span>`;
+      alert(res);
+      setTimeout(resetScannerUI, 3500);
+    }
 
   } catch (err) {
     punchBtn.disabled = false;
     feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Error: ${err.message}</span>`;
-    alert("Camera Error: " + err.message);
+    alert("Connection Error: " + err.message);
   }
 }
 
