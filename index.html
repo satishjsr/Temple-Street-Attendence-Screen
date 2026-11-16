@@ -422,41 +422,48 @@
       }
     }
 // ==============================================================
-// 👁️ ANTI-SPOOFING: REAL-TIME EYE BLINK DETECTION (EAR)
+// 👁️ FAST & RELIABLE LIVENESS ENGINE (BLINK OR SMILE)
 // ==============================================================
 let isLiveVerified = false;
-let blinkTracker = { eyeWasOpen: false, eyeClosed: false, blinkSuccess: false };
+let blinkTracker = { eyeWasOpen: false, eyeClosed: false, blinkSuccess: false, baselineEAR: 0.28 };
 
 function getPointDistance(p1, p2) {
   return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 }
 
 function calculateEAR(eyeLandmarks) {
+  if (!eyeLandmarks || eyeLandmarks.length < 6) return 0.28;
   const v1 = getPointDistance(eyeLandmarks[1], eyeLandmarks[5]);
   const v2 = getPointDistance(eyeLandmarks[2], eyeLandmarks[4]);
   const h = getPointDistance(eyeLandmarks[0], eyeLandmarks[3]);
-  if (h === 0) return 0.3;
+  if (h === 0) return 0.28;
   return (v1 + v2) / (2.0 * h);
 }
 
+// Relaxed Blink Checker
 function checkEyeBlink(landmarks) {
   if (!landmarks) return false;
-  const leftEye = landmarks.getLeftEye();
-  const rightEye = landmarks.getRightEye();
+  try {
+    const leftEye = landmarks.getLeftEye();
+    const rightEye = landmarks.getRightEye();
 
-  const earLeft = calculateEAR(leftEye);
-  const earRight = calculateEAR(rightEye);
-  const avgEAR = (earLeft + earRight) / 2.0;
+    const earLeft = calculateEAR(leftEye);
+    const earRight = calculateEAR(rightEye);
+    const avgEAR = (earLeft + earRight) / 2.0;
 
-  if (avgEAR >= 0.25) {
-    if (blinkTracker.eyeClosed) {
-      blinkTracker.blinkSuccess = true;
+    // Agar aankh normal khuli hai
+    if (avgEAR >= 0.23) {
+      if (blinkTracker.eyeClosed) {
+        blinkTracker.blinkSuccess = true;
+      }
+      blinkTracker.eyeWasOpen = true;
+      blinkTracker.eyeClosed = false;
+    } 
+    // Agar aankh jhapakti hai (Drop below 0.22 is normal human blink)
+    else if (avgEAR < 0.22 && blinkTracker.eyeWasOpen) {
+      blinkTracker.eyeClosed = true;
     }
-    blinkTracker.eyeWasOpen = true;
-    blinkTracker.eyeClosed = false;
-  } else if (avgEAR <= 0.20 && blinkTracker.eyeWasOpen) {
-    blinkTracker.eyeClosed = true;
-  }
+  } catch(e) {}
 
   return blinkTracker.blinkSuccess;
 }
@@ -470,7 +477,7 @@ function resetBlinkTracker() {
     if (isIdentifying) return;
 
     try {
-      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceExpressions()
         .withFaceDescriptor();
@@ -489,67 +496,68 @@ function resetBlinkTracker() {
             isIdentifying = true;
             resetBlinkTracker();
 
-            // 1. Prompt Staff to Blink
+            // 1. Staff Recognize Hua -> Blink OR Smile ka instruction
             document.getElementById('detectingBox').innerHTML = `
               <div class='bg-warning-subtle text-dark border border-warning px-3 py-1.5 rounded-pill font-monospace small fw-bold d-inline-flex align-items-center gap-2'>
                 <span class='spinner-grow spinner-grow-sm text-warning'></span>
-                HI, ${info.name}! 👁️ PLEASE BLINK EYES TO PUNCH
+                HI, ${info.name}! 👁️ BLINK EYES OR SMILE 😊
               </div>`;
 
-            // 2. High-Speed Liveness Monitoring Loop (80ms)
+            // 2. Optimized 120ms Liveness Loop (Fast & Doesn't lag tablet)
             let livenessAttempts = 0;
             const livenessInterval = setInterval(async () => {
               livenessAttempts++;
 
-              const liveFrame = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-                .withFaceLandmarks();
+              const liveFrame = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160 }))
+                .withFaceLandmarks()
+                .withFaceExpressions();
 
-              if (liveFrame && liveFrame.landmarks) {
+              if (liveFrame) {
                 const hasBlinked = checkEyeBlink(liveFrame.landmarks);
+                // Backup Check: Agar staff smile kare (happy > 0.65)
+                const isSmiling = liveFrame.expressions && liveFrame.expressions.happy > 0.65;
 
-                if (hasBlinked) {
+                if (hasBlinked || isSmiling) {
                   clearInterval(livenessInterval);
                   isLiveVerified = true;
 
-                  let moodEmoji = "😐 NORMAL";
-                  if (detection.expressions) {
-                    const exps = detection.expressions;
-                    const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
-                    const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
-                    moodEmoji = moodMap[dominant] || "😐 NORMAL";
-                    lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
-                  }
+                  let moodEmoji = isSmiling ? "😊 HAPPY" : "😐 NORMAL";
+                  lastDetectedMood = isSmiling ? "😊" : "😐";
 
                   document.getElementById('empID').value = empId;
                   document.getElementById('empID').readOnly = true;
 
-                  // ✅ Live Verified Badge
+                  // ✅ LIVE VERIFIED SUCCESS
                   document.getElementById('detectingBox').innerHTML = `
                     <span class='verified-badge' style='background: linear-gradient(135deg, #059669 0%, #10b981 100%);'>
                       <i class='bi bi-shield-check'></i> LIVE VERIFIED: HI, ${info.name} | ${moodEmoji}
                     </span>`;
-                  gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.4, ease: "elastic.out(1.2, 0.5)" });
+                  if (typeof gsap !== 'undefined') {
+                    gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.35, ease: "back.out(1.5)" });
+                  }
 
-                  // Safe Punch Execution
-                  setTimeout(() => { handleAttendance(); }, 600);
+                  // Quick punch trigger
+                  setTimeout(() => { handleAttendance(); }, 400);
                   return;
                 }
               }
 
-              // ❌ 3.6s without natural blink = Static Photo / Spoof Blocked!
-              if (livenessAttempts >= 45) {
+              // ⏱️ Timeout: Agar 4 second tak na blink kare na smile kare
+              if (livenessAttempts >= 35) {
                 clearInterval(livenessInterval);
                 document.getElementById('detectingBox').innerHTML = `
                   <div class='bg-danger text-white px-3 py-1.5 rounded-pill font-monospace small fw-bold'>
-                    ❌ SPOOF REJECTED: LIVE PERSON NOT DETECTED (PHOTO BLOCKED)
+                    ❌ LIVE CHECK FAILED (PLEASE BLINK OR SMILE)
                   </div>`;
-                gsap.fromTo("#detectingBox", { x: -10 }, { x: 10, repeat: 3, yoyo: true, duration: 0.08 });
+                if (typeof gsap !== 'undefined') {
+                  gsap.fromTo("#detectingBox", { x: -8 }, { x: 8, repeat: 2, yoyo: true, duration: 0.08 });
+                }
 
                 setTimeout(() => {
                   window.resetScanner();
-                }, 2500);
+                }, 2000);
               }
-            }, 80);
+            }, 120);
 
           } else {
             document.getElementById('detectingBox').innerHTML = "❓ <span class='text-danger font-monospace small font-bold'>NOT RECOGNIZED</span>";
@@ -568,7 +576,7 @@ function resetBlinkTracker() {
     } catch (err) {
       isIdentifying = false;
     }
-  }, 1200);
+  }, 1000);
 }
 
     function startGps() {
