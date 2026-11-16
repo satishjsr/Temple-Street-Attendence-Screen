@@ -464,8 +464,8 @@
       isIdentifying = false;
     }
 
-    // ==============================================================
-// 📸 1-CLICK KIOSK NEW FACE REGISTRATION ENGINE
+  // ==============================================================
+// 📸 1-CLICK KIOSK NEW FACE REGISTRATION ENGINE (NATIVE RUNNER)
 // ==============================================================
 async function handleKioskFaceRegister() {
   const empInput = document.getElementById('empID');
@@ -504,39 +504,32 @@ async function handleKioskFaceRegister() {
   const regBtn = document.getElementById('regFaceBtn');
   if (regBtn) regBtn.disabled = true;
 
-  try {
-    // 3. Send to Google Apps Script doPost (REGISTER_FACE action)
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        action: "REGISTER_FACE",
-        payload: {
-          empID: id,
-          outlet: document.getElementById('outlet').value,
-          faceDescriptor: Array.from(detection.descriptor),
-          photo: photoBase64
-        }
-      })
+  // 3. Direct Google Apps Script Execution (No fetch / No SCRIPT_URL error)
+  google.script.run
+    .withSuccessHandler(statusMsg => {
+      if (regBtn) regBtn.disabled = false;
+      statusMsg = String(statusMsg || "");
+
+      if (statusMsg.includes("SUCCESS")) {
+        feedback.innerHTML = `<span class='feed-pill bg-success text-white shadow-lg'>✅ ${statusMsg}</span>`;
+        alert(`✅ Face Registered Successfully for ${id}!\n\nAb HR Portal par 'Staff Management' me jakar 'Approve & Sync' karein, uske baad attendance lagna shuru ho jayegi.`);
+        setTimeout(() => { resetScannerUI(); }, 3000);
+      } else {
+        feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${statusMsg}</span>`;
+        alert(statusMsg);
+      }
+    })
+    .withFailureHandler(err => {
+      if (regBtn) regBtn.disabled = false;
+      feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Error: ${err.message}</span>`;
+      alert("Error: " + err.message);
+    })
+    .registerStaffFromKiosk({
+      empID: id,
+      outlet: document.getElementById('outlet').value,
+      faceDescriptor: Array.from(detection.descriptor),
+      photo: photoBase64
     });
-
-    const resJson = await response.json();
-    if (regBtn) regBtn.disabled = false;
-
-    const statusMsg = resJson.status || "";
-
-    if (statusMsg.includes("SUCCESS")) {
-      feedback.innerHTML = `<span class='feed-pill bg-success text-white shadow-lg'>✅ ${statusMsg}</span>`;
-      alert(`✅ Face Registered Successfully for ${id}!\n\nAb HR Portal par 'Staff Management' me jakar 'Approve & Sync' karein, uske baad attendance lagna shuru ho jayegi.`);
-      setTimeout(() => { window.resetScanner(); }, 3000);
-    } else {
-      feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${statusMsg}</span>`;
-      alert(statusMsg);
-    }
-  } catch (err) {
-    if (regBtn) regBtn.disabled = false;
-    feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Network Error: ${err.message}</span>`;
-    alert("Network Error: " + err.message);
-  }
 }
   </script>
 </body>
