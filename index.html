@@ -9,16 +9,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
   <title>Temple Street ERP - Biometric Kiosk</title>
 
-  <!-- Typography: Plus Jakarta Sans -->
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
 
-  <!-- Bootstrap 5 & Icons -->
+  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
 
-  <!-- face-api.js Core -->
+  <!-- face-api.js Core Models -->
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
   <!-- 🚀 GreenSock (GSAP v3) Animation Engine -->
@@ -26,6 +26,7 @@
 
   <style>
     :root {
+      --brand-red: #dc2626;
       --brand-dark: #090d16;
       --brand-surface: #111827;
       --hud-cyan: #38bdf8;
@@ -208,7 +209,7 @@
     <div class="d-flex align-items-center justify-content-between mb-2 px-1">
       <div class="text-start">
         <h5 class="fw-bold mb-0 text-white tracking-tight">TEMPLE STREET</h5>
-        <span class="text-secondary small font-monospace" style="font-size: 10px;">SMART FACIAL ATTENDANCE KIOSK</span>
+        <span class="text-secondary small font-monospace" style="font-size: 10px;">FACIAL ATTENDANCE KIOSK</span>
       </div>
       <span class="badge rounded-pill bg-dark border border-secondary text-secondary" style="font-size: 10px;">
         <i class="bi bi-cpu me-1 text-info"></i>AI 0.48
@@ -228,7 +229,7 @@
 
     <!-- System Status Bar -->
     <div id="aiMsg" class="alert alert-dark py-2 px-3 small mb-3 border-secondary-subtle text-secondary font-monospace" style="font-size: 11px;">
-      ⏳ Connecting to Database...
+      ⏳ Initializing Neural Face Engine...
     </div>
 
     <!-- Store Location Selector -->
@@ -239,13 +240,10 @@
     </select>
 
     <!-- Manual ID Fallback Input -->
-    <div class="d-flex gap-2 mb-3">
-      <input type="text" id="empID" class="form-control text-center font-monospace"
-             placeholder="SHOW FACE OR ENTER ID"
-             oninput="this.value = this.value.toUpperCase();"
-             style="border: 1.5px solid #475569; letter-spacing: 1px;">
-      <button class="btn btn-secondary px-3" onclick="resetScanner()" style="border-radius: 12px; font-weight: bold; background: #334155; border: none;">✕</button>
-    </div>
+    <input type="text" id="empID" class="form-control text-center mb-3 font-monospace"
+           placeholder="SCAN FACE OR TYPE ID"
+           oninput="this.value = this.value.toUpperCase();"
+           style="border: 1.5px solid #475569; letter-spacing: 1px;">
 
     <!-- Manual Punch Trigger Button -->
     <button id="punchBtn" class="btn btn-punch" onclick="handleAttendance()" disabled>
@@ -256,126 +254,38 @@
     <div id="feedback" class="mt-3" style="min-height: 32px;"></div>
   </div>
 
-  <!-- 🔥 MODULAR FIREBASE CLIENT SDK (LOCAL MEMORY CACHE) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-    const firebaseConfig = { databaseURL: "https://temple-street-erp-default-rtdb.firebaseio.com/" };
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    window.firebaseDb = db;
-
-    const connectedRef = ref(db, ".info/connected");
-    onValue(connectedRef, (snap) => {
-      if (snap.val() === true) {
-        console.log("🔥 Firebase connected!");
-      } else {
-        document.getElementById('aiMsg').innerText = "⚠️ Network issue, retrying connection...";
-      }
-    });
-
-    onValue(ref(db, 'staff'), (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (!data) {
-          document.getElementById('aiMsg').innerText = "⚠️ DB is empty. Run sync script in backend.";
-          return;
-        }
-
-        const labeledDescriptors = [];
-        window.staffMap = {};
-        let validFacesCount = 0;
-
-        for (let empId in data) {
-          if (data[empId].faceCode) {
-            window.staffMap[empId] = { name: data[empId].name || "Staff", outlet: data[empId].outlet || "" };
-            let rawCode = data[empId].faceCode;
-            let floatArr;
-            try {
-              if (typeof rawCode === 'string') floatArr = new Float32Array(JSON.parse(rawCode));
-              else if (Array.isArray(rawCode)) floatArr = new Float32Array(rawCode);
-              else floatArr = new Float32Array(Object.values(rawCode));
-
-              if (floatArr.length === 128) {
-                labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(empId, [floatArr]));
-                validFacesCount++;
-              }
-            } catch(e) {}
-          }
-        }
-
-        if (labeledDescriptors.length > 0) {
-          window.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.48);
-          const aiMsg = document.getElementById('aiMsg');
-          aiMsg.className = "alert alert-success py-2 px-3 small mb-3 font-monospace";
-          aiMsg.innerHTML = `✅ DB Ready (${validFacesCount} faces) | AI Active`;
-        }
-      } catch (err) {}
-    });
-
-    window.recordInstantPunch = (id) => {
-      const today = new Date().toISOString().split('T')[0];
-      set(ref(db, `punches/${today}/${id}`), { time: new Date().toLocaleTimeString("en-IN"), status: "P" });
-    };
-
-    window.registerNewFaceToFirebase = (id, descriptor, outlet) => {
-      set(ref(db, `staff/${id}/faceCode`), Array.from(descriptor));
-      set(ref(db, `staff/${id}/outlet`), outlet);
-    };
-  </script>
-
-  <!-- 🚀 MAIN CLIENT-SIDE LOGIC WITH GSAP ANIMATIONS -->
   <script>
-    // 🔥 YOUR APPS SCRIPT WEB APP DEPLOYMENT URL
-    const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
-
     const video = document.getElementById('video');
     const overlay = document.getElementById('overlay');
     let userPos = { lat: 0, lng: 0 };
     let isIdentifying = false;
-    let punchTimer;
-    let lastDetectedMood = "😐";
     let scanAnimation = null;
 
     window.onload = async () => {
-      // 🚀 GSAP Kiosk Card Entrance Animation
+      // 🚀 Entrance GSAP Transition for the Kiosk Card
       gsap.from("#kioskContainer", { y: 25, opacity: 0, duration: 0.6, ease: "power2.out" });
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
-        video.onloadedmetadata = () => { video.play(); };
-
-        document.getElementById('aiMsg').innerText = "⏳ Loading AI Engine...";
 
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
 
+        document.getElementById('aiMsg').innerText = "✅ AI Ready | Verifying GPS...";
         document.getElementById('punchBtn').disabled = false;
 
         startTracking();
         startGps();
         startAutoIdentification();
       } catch (e) {
-        document.getElementById('aiMsg').innerHTML = "❌ <b>Camera Access Denied.</b> Please allow permissions.";
+        document.getElementById('aiMsg').innerText = "❌ Camera Access Denied: " + e.message;
       }
     };
-
-    window.resetScanner = () => {
-  if (punchTimer) clearTimeout(punchTimer);
-  document.getElementById('empID').value = "";
-  document.getElementById('empID').readOnly = false;
-  document.getElementById('detectingBox').innerHTML = "";
-  document.getElementById('feedback').innerHTML = "";
-  triggerScanningRadar(false);
-  isIdentifying = false;
-};
 
     function startTracking() {
       const displaySize = { width: video.videoWidth || 400, height: video.videoHeight || 300 };
@@ -387,7 +297,7 @@
         overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
         faceapi.draw.drawDetections(overlay, resized);
 
-        // 🚀 GSAP Scanning Radar Trigger: When a face enters the camera frame
+        // 🚀 GSAP Scanning Radar Trigger: Runs when face is present in camera
         if (detections.length > 0 && !scanAnimation) {
           triggerScanningRadar(true);
         } else if (detections.length === 0 && scanAnimation) {
@@ -420,73 +330,43 @@
         gsap.to(cameraFrame, { borderColor: "#334155", duration: 0.4 });
       }
     }
-function startAutoIdentification() {
-  setInterval(async () => {
-    if (isIdentifying) return;
 
-    try {
-      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-        .withFaceLandmarks()
-        .withFaceExpressions()
-        .withFaceDescriptor();
-
-      if (detection) {
-        if (document.activeElement.id === 'empID') return;
+    function startAutoIdentification() {
+      setInterval(async () => {
+        if (isIdentifying || document.activeElement.id === 'empID') return;
         if (document.getElementById('empID').value !== "") return;
 
-        isIdentifying = true;
-        document.getElementById('detectingBox').innerHTML = "🔍 SCANNING FACE...";
-        document.getElementById('feedback').innerHTML = "";
+        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+          .withFaceLandmarks()
+          .withFaceDescriptor();
 
-        if (window.faceMatcher) {
-          const result = window.faceMatcher.findBestMatch(detection.descriptor);
+        if (detection) {
+          isIdentifying = true;
+          document.getElementById('detectingBox').innerHTML = "<span class='text-warning small fw-bold font-monospace'>🔍 RECOGNIZING FACE...</span>";
 
-          if (result.label !== 'unknown' && result.distance <= 0.48) {
-            const empId = result.label;
-            const info = window.staffMap[empId] || { name: "", outlet: "" };
+          google.script.run.withSuccessHandler(res => {
+            if (res && res.id) {
+              document.getElementById('empID').value = res.id;
+              document.getElementById('empID').readOnly = true;
 
-            let moodEmoji = "😐 NORMAL";
-            if (detection.expressions) {
-              const exps = detection.expressions;
-              const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
-              const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
-              moodEmoji = moodMap[dominant] || "😐 NORMAL";
-              lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
-            }
-
-            document.getElementById('empID').value = empId;
-            document.getElementById('empID').readOnly = true;
-
-            // 🚀 GSAP Elastic Pop Stamp for Verified Staff
-            document.getElementById('detectingBox').innerHTML = `<span class='verified-badge' style='background: linear-gradient(135deg, #059669 0%, #10b981 100%);'><i class='bi bi-shield-check'></i> HI, ${info.name} | ${moodEmoji}</span>`;
-            if (typeof gsap !== 'undefined') {
+              // 🚀 GSAP Elastic Pop Stamp for Verified Staff
+              document.getElementById('detectingBox').innerHTML = `<span class='verified-badge'><i class='bi bi-check-circle-fill'></i> HI, ${res.name}</span>`;
               gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.5, ease: "elastic.out(1.2, 0.5)" });
+
+              document.getElementById('aiMsg').className = "alert alert-success py-2 px-3 small mb-3 font-monospace";
+              document.getElementById('aiMsg').innerHTML = `<b>Verified:</b> ${res.name} (${res.id})`;
+
+              // Auto-Punch execution after brief recognition acknowledgment
+              setTimeout(() => { handleAttendance(); }, 1400);
+            } else {
+              document.getElementById('detectingBox').innerHTML = "<span class='text-danger small fw-bold font-monospace'>❓ UNKNOWN FACE</span>";
+              document.getElementById('empID').readOnly = false;
             }
-
-            punchTimer = setTimeout(() => { handleAttendance(); }, 1200);
-
-          } else {
-            document.getElementById('detectingBox').innerHTML = "❓ NOT RECOGNIZED";
             isIdentifying = false;
-          }
-        } else {
-          document.getElementById('detectingBox').innerHTML = "⏳ WAITING FOR DB...";
-          isIdentifying = false;
+          }).identifyStaffByFace(Array.from(detection.descriptor));
         }
-      } else {
-        const detectingText = document.getElementById('detectingBox').innerText;
-        const isAIControlled = document.getElementById('empID').readOnly;
-        const isNotPunching = !document.getElementById('punchBtn').disabled;
-
-        if (detectingText.includes("NOT RECOGNIZED") || (isAIControlled && isNotPunching)) {
-          window.resetScanner();
-        }
-      }
-    } catch (err) {
-      isIdentifying = false;
+      }, 2500);
     }
-  }, 1200);
-}
 
     function startGps() {
       navigator.geolocation.watchPosition(pos => {
@@ -494,7 +374,14 @@ function startAutoIdentification() {
         const gpsPill = document.getElementById('gpsPill');
         gpsPill.className = "status-pill bg-gps-active";
         gpsPill.innerText = "GPS: ACTIVE";
+
+        // Subtle GSAP glow pulse when GPS locks
         gsap.fromTo(gpsPill, { scale: 0.9 }, { scale: 1, duration: 0.4, ease: "back.out(2)" });
+
+        let aiMsgBox = document.getElementById('aiMsg');
+        if (aiMsgBox.innerText.includes("Verifying GPS")) {
+          aiMsgBox.innerText = "✅ AI & GPS Ready | Please Scan Face";
+        }
       }, null, { enableHighAccuracy: true });
     }
 
@@ -510,10 +397,9 @@ function startAutoIdentification() {
         .withFaceDescriptor();
 
       if (!detection) {
-        document.getElementById('detectingBox').innerHTML = "<span class='text-danger small font-bold'>Face lost! Step back into frame.</span>";
-        setTimeout(() => { window.resetScanner(); }, 2000);
+        alert("Face lost! Please stay centered in camera.");
         document.getElementById('punchBtn').disabled = false;
-        document.getElementById('feedback').innerHTML = "";
+        document.getElementById('feedback').innerText = "";
         return;
       }
 
@@ -522,64 +408,58 @@ function startAutoIdentification() {
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
 
-      // Tactile button bounce on punch
+      // Tactile button bounce on punch submission
       gsap.to("#punchBtn", { scale: 0.96, duration: 0.1, yoyo: true, repeat: 1 });
 
-      const payloadData = {
+      google.script.run.withSuccessHandler(res => {
+        document.getElementById('punchBtn').disabled = false;
+
+        let isSuccess = res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch");
+        let isAlready = res.includes("⚠️") || res.includes("ALREADY");
+
+        if (isSuccess) {
+          // Determine if punch is Punch-In (Green) or Punch-Out (Purple/Indigo)
+          let isPunchOut = res.includes("Punch Out");
+          let pillStyle = isPunchOut
+            ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;"
+            : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
+
+          document.getElementById('feedback').innerHTML = `<span class='feed-pill shadow-lg' style='${pillStyle}'>${res}</span>`;
+          gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
+
+          // Smooth cooldown transition for next staff member
+          setTimeout(() => {
+            gsap.to("#feedback .feed-pill", { opacity: 0, y: -10, duration: 0.3, onComplete: resetScannerUI });
+          }, 3500);
+
+        } else if (isAlready) {
+          document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-warning text-dark border border-warning shadow'>${res}</span>`;
+          gsap.from("#feedback .feed-pill", { x: -8, duration: 0.1, repeat: 3, yoyo: true });
+          setTimeout(() => { resetScannerUI(); }, 3500);
+
+        } else {
+          document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-danger text-white border border-danger shadow'>${res}</span>`;
+          setTimeout(() => { resetScannerUI(); }, 3500);
+        }
+      }).processAttendance({
         empID: id,
         outlet: document.getElementById('outlet').value,
         lat: userPos.lat,
         lng: userPos.lng,
         faceDescriptor: Array.from(detection.descriptor),
-        photo: canvas.toDataURL('image/jpeg', 0.5),
-        mood: lastDetectedMood
-      };
-
-      fetch(GOOGLE_API_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "PUNCH_ATTENDANCE", payload: payloadData })
-      })
-      .then(response => response.json())
-      .then(res => {
-        document.getElementById('punchBtn').disabled = false;
-
-        let msg = String(res.status || res || "");
-        let isSuccess = msg.toUpperCase().includes("SUCCESS") || msg.includes("Recorded") || msg.includes("Punch");
-        let isAlready = msg.includes("⚠️") || msg.toUpperCase().includes("ALREADY");
-
-        if (isSuccess) {
-          let isPunchOut = msg.includes("Punch Out");
-          let pillStyle = isPunchOut
-            ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;"
-            : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
-
-          document.getElementById('feedback').innerHTML = `<span class='feed-pill shadow-lg' style='${pillStyle}'>${msg}</span>`;
-          gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
-
-          if (window.recordInstantPunch) window.recordInstantPunch(id);
-          if (window.registerNewFaceToFirebase && !window.staffMap[id]) {
-            window.registerNewFaceToFirebase(id, detection.descriptor, document.getElementById('outlet').value);
-          }
-
-          setTimeout(() => {
-            gsap.to("#feedback .feed-pill", { opacity: 0, y: -10, duration: 0.3, onComplete: window.resetScanner });
-          }, 3500);
-
-        } else if (isAlready) {
-          document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-warning text-dark border border-warning shadow'>${msg}</span>`;
-          gsap.from("#feedback .feed-pill", { x: -8, duration: 0.1, repeat: 3, yoyo: true });
-          setTimeout(() => { window.resetScanner(); }, 3500);
-
-        } else {
-          document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-danger text-white border border-danger shadow'>${msg}</span>`;
-          setTimeout(() => { window.resetScanner(); }, 3500);
-        }
-      })
-      .catch(error => {
-        document.getElementById('punchBtn').disabled = false;
-        document.getElementById('feedback').innerHTML = `<span class='feed-pill bg-danger text-white border border-danger'>❌ Network Error, Try Again</span>`;
-        setTimeout(() => { window.resetScanner(); }, 3000);
+        photo: canvas.toDataURL('image/jpeg', 0.5)
       });
+    }
+
+    function resetScannerUI() {
+      document.getElementById('empID').value = "";
+      document.getElementById('empID').readOnly = false;
+      document.getElementById('detectingBox').innerHTML = "";
+      document.getElementById('feedback').innerHTML = "";
+      document.getElementById('aiMsg').className = "alert alert-dark py-2 px-3 small mb-3 border-secondary-subtle text-secondary font-monospace";
+      document.getElementById('aiMsg').innerText = "✅ AI Ready | Next Staff Please";
+      triggerScanningRadar(false);
+      isIdentifying = false;
     }
   </script>
 </body>
