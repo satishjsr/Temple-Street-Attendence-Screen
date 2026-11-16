@@ -369,7 +369,6 @@
 
     window.resetScanner = () => {
   if (punchTimer) clearTimeout(punchTimer);
-  resetBlinkTracker(); // 👈 YEH LINE ADD KAREIN
   document.getElementById('empID').value = "";
   document.getElementById('empID').readOnly = false;
   document.getElementById('detectingBox').innerHTML = "";
@@ -421,34 +420,13 @@
         gsap.to(cameraFrame, { borderColor: "#334155", duration: 0.4 });
       }
     }
-// ==============================================================
-// ⚡ ULTRA-FAST PASSIVE LIVENESS (NATURAL MICRO-MOTION ENGINE)
-// ==============================================================
-let initialFaceBox = null;
-
-function checkPassiveLiveness(box1, box2) {
-  if (!box1 || !box2) return false;
-  const dx = Math.abs((box1.x + box1.width / 2) - (box2.x + box2.width / 2));
-  const dy = Math.abs((box1.y + box1.height / 2) - (box2.y + box2.height / 2));
-  const dw = Math.abs(box1.width - box2.width);
-  const motionDelta = dx + dy + dw;
-
-  // Real human has natural minor micro-shift (0.6px to 40px in 350ms)
-  // Static printed photo held still has near zero variance
-  return motionDelta >= 0.6;
-}
-
-function resetBlinkTracker() {
-  initialFaceBox = null;
-}
-
 function startAutoIdentification() {
   setInterval(async () => {
     if (isIdentifying) return;
 
     try {
-      // 1. Instant Single-Pass Detection
-      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+      const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+        .withFaceLandmarks()
         .withFaceExpressions()
         .withFaceDescriptor();
 
@@ -456,65 +434,44 @@ function startAutoIdentification() {
         if (document.activeElement.id === 'empID') return;
         if (document.getElementById('empID').value !== "") return;
 
+        isIdentifying = true;
+        document.getElementById('detectingBox').innerHTML = "🔍 SCANNING FACE...";
+        document.getElementById('feedback').innerHTML = "";
+
         if (window.faceMatcher) {
           const result = window.faceMatcher.findBestMatch(detection.descriptor);
 
           if (result.label !== 'unknown' && result.distance <= 0.48) {
             const empId = result.label;
-            const info = window.staffMap[empId] || { name: "Staff", outlet: "" };
+            const info = window.staffMap[empId] || { name: "", outlet: "" };
 
-            isIdentifying = true;
-            initialFaceBox = detection.box;
+            let moodEmoji = "😐 NORMAL";
+            if (detection.expressions) {
+              const exps = detection.expressions;
+              const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
+              const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY", fearful: "😨 FEARFUL", disgusted: "🤢 DISGUST", surprised: "😲 WOW" };
+              moodEmoji = moodMap[dominant] || "😐 NORMAL";
+              lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
+            }
 
-            // Instant Live Indicator
-            document.getElementById('detectingBox').innerHTML = `
-              <div class='bg-warning-subtle text-dark border border-warning px-3 py-1 rounded-pill font-monospace small fw-bold d-inline-flex align-items-center gap-2'>
-                <span class='spinner-border spinner-border-sm text-warning'></span>
-                VERIFYING: HI, ${info.name}...
-              </div>`;
+            document.getElementById('empID').value = empId;
+            document.getElementById('empID').readOnly = true;
 
-            // ⚡ Ultra-Fast 350ms Passive Liveness Check (Staff ko koi task nahi karna!)
-            setTimeout(async () => {
-              try {
-                const secondDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160 }));
-                
-                // Real physical person natural motion check
-                const isAlive = secondDetection ? checkPassiveLiveness(initialFaceBox, secondDetection.box) : true;
+            // 🚀 GSAP Elastic Pop Stamp for Verified Staff
+            document.getElementById('detectingBox').innerHTML = `<span class='verified-badge' style='background: linear-gradient(135deg, #059669 0%, #10b981 100%);'><i class='bi bi-shield-check'></i> HI, ${info.name} | ${moodEmoji}</span>`;
+            if (typeof gsap !== 'undefined') {
+              gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.5, ease: "elastic.out(1.2, 0.5)" });
+            }
 
-                // Mood detect
-                let moodEmoji = "😐 NORMAL";
-                if (detection.expressions) {
-                  const exps = detection.expressions;
-                  const dominant = Object.keys(exps).reduce((a, b) => exps[a] > exps[b] ? a : b);
-                  const moodMap = { happy: "😊 HAPPY", neutral: "😐 NORMAL", sad: "😔 SAD", angry: "😠 ANGRY" };
-                  moodEmoji = moodMap[dominant] || "😐 NORMAL";
-                  lastDetectedMood = moodMap[dominant] ? moodMap[dominant].split(" ")[0] : "😐";
-                }
-
-                document.getElementById('empID').value = empId;
-                document.getElementById('empID').readOnly = true;
-
-                // ✅ Instant Green Verified Badge
-                document.getElementById('detectingBox').innerHTML = `
-                  <span class='verified-badge' style='background: linear-gradient(135deg, #059669 0%, #10b981 100%);'>
-                    <i class='bi bi-shield-check'></i> VERIFIED: HI, ${info.name} | ${moodEmoji}
-                  </span>`;
-                if (typeof gsap !== 'undefined') {
-                  gsap.from(".verified-badge", { scale: 0.5, opacity: 0, duration: 0.25, ease: "back.out(1.5)" });
-                }
-
-                // Instant Punch Trigger (Under 1 second total!)
-                setTimeout(() => { handleAttendance(); }, 300);
-
-              } catch (e) {
-                isIdentifying = false;
-              }
-            }, 350);
+            punchTimer = setTimeout(() => { handleAttendance(); }, 1200);
 
           } else {
-            document.getElementById('detectingBox').innerHTML = "❓ <span class='text-danger font-monospace small font-bold'>NOT RECOGNIZED</span>";
+            document.getElementById('detectingBox').innerHTML = "❓ NOT RECOGNIZED";
             isIdentifying = false;
           }
+        } else {
+          document.getElementById('detectingBox').innerHTML = "⏳ WAITING FOR DB...";
+          isIdentifying = false;
         }
       } else {
         const detectingText = document.getElementById('detectingBox').innerText;
@@ -528,7 +485,7 @@ function startAutoIdentification() {
     } catch (err) {
       isIdentifying = false;
     }
-  }, 800);
+  }, 1200);
 }
 
     function startGps() {
