@@ -371,41 +371,82 @@ window.onload = async () => {
     }
 
     function startAutoIdentification() {
-      setInterval(async () => {
-        if (isIdentifying || document.activeElement.id === 'empID') return;
-        if (document.getElementById('empID').value !== "") return;
+  setInterval(async () => {
+    // Agar HR ne ID type kar rakhi hai ya box focus me hai, toh auto-match pause rahega
+    if (isIdentifying || document.activeElement.id === 'empID') return;
+    if (document.getElementById('empID').value !== "") return;
 
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+    const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
 
-        if (detection) {
-          isIdentifying = true;
-          document.getElementById('detectingBox').innerHTML = "<span class='text-warning small fw-bold font-monospace'>🔍 RECOGNIZING FACE...</span>";
+    if (detection) {
+      isIdentifying = true;
+      document.getElementById('detectingBox').innerHTML = "<span class='text-warning small fw-bold font-monospace'>🔍 RECOGNIZING FACE...</span>";
 
-          google.script.run.withSuccessHandler(res => {
-            if (res && res.id) {
-              document.getElementById('empID').value = res.id;
-              document.getElementById('empID').readOnly = true;
+      try {
+        // Webhook ke zariye face identify karein (CORS Safe)
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          mode: "cors",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "IDENTIFY_FACE",
+            payload: { descriptor: Array.from(detection.descriptor) }
+          })
+        });
 
-              // 🚀 GSAP Elastic Pop Stamp for Verified Staff
-              document.getElementById('detectingBox').innerHTML = `<span class='verified-badge'><i class='bi bi-check-circle-fill'></i> HI, ${res.name}</span>`;
-              gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.5, ease: "elastic.out(1.2, 0.5)" });
+        const resData = await response.json();
+        const res = (resData && resData.status === "SUCCESS") ? resData.result : null;
 
-              document.getElementById('aiMsg').className = "alert alert-success py-2 px-3 small mb-3 font-monospace";
-              document.getElementById('aiMsg').innerHTML = `<b>Verified:</b> ${res.name} (${res.id})`;
+        if (res && res.id) {
+          // 1. Staff pehchan liya gaya -> ID fill karein
+          document.getElementById('empID').value = res.id;
+          document.getElementById('empID').readOnly = true;
 
-              // Auto-Punch execution after brief recognition acknowledgment
-              setTimeout(() => { handleAttendance(); }, 1400);
-            } else {
-              document.getElementById('detectingBox').innerHTML = "<span class='text-danger small fw-bold font-monospace'>❓ UNKNOWN FACE</span>";
-              document.getElementById('empID').readOnly = false;
+          // Branch dropdown auto-sync karein agar mapped hai
+          if (res.outlet) {
+            const outSelect = document.getElementById('outlet');
+            for (let i = 0; i < outSelect.options.length; i++) {
+              if (outSelect.options[i].value.toLowerCase() === res.outlet.toLowerCase()) {
+                outSelect.selectedIndex = i;
+                break;
+              }
+            }
+          }
+
+          // Screen par badge dikhayein
+          document.getElementById('detectingBox').innerHTML = `<span class='verified-badge'><i class='bi bi-check-circle-fill'></i> HI, ${res.name}</span>`;
+          if (typeof gsap !== 'undefined') {
+            gsap.from(".verified-badge", { scale: 0.4, opacity: 0, duration: 0.5, ease: "elastic.out(1.2, 0.5)" });
+          }
+
+          document.getElementById('aiMsg').className = "alert alert-success py-2 px-3 small mb-3 font-monospace";
+          document.getElementById('aiMsg').innerHTML = `<b>Verified:</b> ${res.name} (${res.id})`;
+
+          // 🚀 AUTO-PUNCH: Bina button dabaye 1.4 sec mein attendance punch
+          setTimeout(() => { handleAttendance(); }, 1400);
+
+        } else {
+          // Unregistered/Pending face
+          document.getElementById('detectingBox').innerHTML = "<span class='text-danger small fw-bold font-monospace'>❓ UNKNOWN FACE</span>";
+          document.getElementById('empID').readOnly = false;
+          setTimeout(() => {
+            if (document.getElementById('empID').value === "") {
+              document.getElementById('detectingBox').innerHTML = "";
             }
             isIdentifying = false;
-          }).identifyStaffByFace(Array.from(detection.descriptor));
+          }, 2000);
         }
-      }, 2500);
+      } catch (err) {
+        console.error("Identification Error:", err);
+        document.getElementById('detectingBox').innerHTML = "";
+        isIdentifying = false;
+      }
     }
+  }, 2500);
+}
 
     function startGps() {
       navigator.geolocation.watchPosition(pos => {
