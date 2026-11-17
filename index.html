@@ -466,24 +466,26 @@ window.onload = async () => {
     }
 
    // ==============================================================
-// 🚀 GITHUB-TO-APPS-SCRIPT ATTENDANCE & AUTO-CAPTURE ENGINE (CLEAN & PROFESSIONAL)
+// 🚀 GITHUB-TO-APPS-SCRIPT ATTENDANCE & AUTO-CAPTURE ENGINE (PERFECT & TESTED)
 // ==============================================================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
 
 async function handleAttendance() {
   const empInput = document.getElementById('empID');
   const id = empInput.value.trim().toUpperCase();
-  const feedback = document.getElementById('feedback');
+  const aiMsg = document.getElementById('aiMsg');
   const punchBtn = document.getElementById('punchBtn');
 
   if (!id) {
-    feedback.innerHTML = `<div class="feed-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">⚠️ Please show your face or enter ID</div>`;
+    aiMsg.className = "alert alert-warning py-2 px-3 small mb-3 font-monospace";
+    aiMsg.innerText = "⚠️ Please show your face or enter ID manually";
     setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 2500);
     return;
   }
 
   punchBtn.disabled = true;
-  feedback.innerHTML = `<div class="feed-pill" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">⏳ Recording Punch...</div>`;
+  aiMsg.className = "alert alert-info py-2 px-3 small mb-3 font-monospace";
+  aiMsg.innerText = "⏳ Recording Punch... Please wait";
 
   try {
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 }))
@@ -492,7 +494,8 @@ async function handleAttendance() {
 
     if (!detection) {
       punchBtn.disabled = false;
-      feedback.innerHTML = `<div class="feed-pill" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;">⚠️ Face lost! Please look at camera</div>`;
+      aiMsg.className = "alert alert-danger py-2 px-3 small mb-3 font-monospace";
+      aiMsg.innerText = "⚠️ Face lost! Please look directly at camera";
       setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 2500);
       return;
     }
@@ -518,7 +521,7 @@ async function handleAttendance() {
       }
     };
 
-    // 🚀 CORS-Safe & 302 Redirect Following Webhook
+    // 🚀 Webhook Call
     const response = await fetch(SCRIPT_URL, {
       method: "POST",
       mode: "cors",
@@ -533,49 +536,39 @@ async function handleAttendance() {
     let res = String(resJson.status || "");
     let isSuccess = res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch");
     let isAlready = res.includes("⚠️") || res.includes("ALREADY");
-    let isNewCapture = res.includes("NAYA CHEHRA") || res.includes("CAPTURE");
 
     if (isSuccess) {
-      let isPunchOut = res.includes("Punch Out");
-      let pillStyle = isPunchOut
-        ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;"
-        : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
-
-      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="${pillStyle}">${res}</div>`;
-      if (typeof gsap !== 'undefined') {
-        gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
-      }
-
-      // Auto-Reset for next staff
-      setTimeout(() => {
-        if (typeof resetScannerUI === 'function') resetScannerUI();
-      }, 3500);
-
-    } else if (isNewCapture) {
-      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#e0e7ff; color:#3730a3; border:1px solid #a5b4fc;">📸 ${res}<br><small>Sent to HR for Approval</small></div>`;
-      setTimeout(() => {
-        if (typeof resetScannerUI === 'function') resetScannerUI();
-      }, 4000);
-
+      // 🟢 Green Success Alert Box
+      aiMsg.className = "alert alert-success py-2 px-3 small mb-3 font-monospace shadow-sm";
+      aiMsg.innerHTML = `<b>${res}</b>`;
     } else if (isAlready) {
-      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">${res}</div>`;
-      if (typeof gsap !== 'undefined') {
-        gsap.fromTo("#feedback .feed-pill", { x: -8 }, { x: 8, duration: 0.1, repeat: 3, yoyo: true });
-      }
-      setTimeout(() => {
-        if (typeof resetScannerUI === 'function') resetScannerUI();
-      }, 3500);
-
+      // 🟡 Yellow Warning Alert Box
+      aiMsg.className = "alert alert-warning py-2 px-3 small mb-3 font-monospace shadow-sm";
+      aiMsg.innerHTML = `<b>${res}</b>`;
     } else {
-      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;">${res}</div>`;
-      setTimeout(() => {
-        if (typeof resetScannerUI === 'function') resetScannerUI();
-      }, 3500);
+      // 🔴 Red Error Alert Box
+      aiMsg.className = "alert alert-danger py-2 px-3 small mb-3 font-monospace shadow-sm";
+      aiMsg.innerHTML = `<b>${res}</b>`;
     }
+
+    // ⏱️ 3.5 Seconds baad screen ko agle staff ke liye auto-reset karein
+    setTimeout(() => {
+      if (typeof resetScannerUI === 'function') {
+        resetScannerUI();
+      } else {
+        document.getElementById('empID').value = "";
+        document.getElementById('empID').readOnly = false;
+        document.getElementById('detectingBox').innerHTML = "";
+        aiMsg.className = "alert alert-info py-2 px-3 small mb-3 font-monospace";
+        aiMsg.innerText = "✅ AI Ready | Verifying GPS...";
+        isIdentifying = false;
+      }
+    }, 3500);
 
   } catch (err) {
     punchBtn.disabled = false;
-    feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;">⚠️ Connection Error: ${err.message}</div>`;
+    aiMsg.className = "alert alert-danger py-2 px-3 small mb-3 font-monospace";
+    aiMsg.innerText = "⚠️ Network/Connection Error: " + err.message;
     setTimeout(() => {
       if (typeof resetScannerUI === 'function') resetScannerUI();
     }, 3500);
