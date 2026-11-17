@@ -466,7 +466,7 @@ window.onload = async () => {
     }
 
    // ==============================================================
-// 🚀 GITHUB-TO-APPS-SCRIPT ATTENDANCE & AUTO-CAPTURE ENGINE
+// 🚀 GITHUB-TO-APPS-SCRIPT ATTENDANCE & AUTO-CAPTURE ENGINE (CLEAN & PROFESSIONAL)
 // ==============================================================
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby61EwqCDFvrKfoF1phHoqABK1EqAEd0fQwaKBmkz0KENArmLqYQjz9oU-LvqG4Rw/exec";
 
@@ -476,10 +476,14 @@ async function handleAttendance() {
   const feedback = document.getElementById('feedback');
   const punchBtn = document.getElementById('punchBtn');
 
-  if (!id) return alert("Please show your face or enter ID manually");
+  if (!id) {
+    feedback.innerHTML = `<div class="feed-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">⚠️ Please show your face or enter ID</div>`;
+    setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 2500);
+    return;
+  }
 
   punchBtn.disabled = true;
-  feedback.innerHTML = "<span class='feed-pill bg-secondary text-white'>⏳ Recording Punch...</span>";
+  feedback.innerHTML = `<div class="feed-pill" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;">⏳ Recording Punch...</div>`;
 
   try {
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 }))
@@ -487,9 +491,9 @@ async function handleAttendance() {
       .withFaceDescriptor();
 
     if (!detection) {
-      alert("Face lost! Please stay centered in camera.");
       punchBtn.disabled = false;
-      feedback.innerText = "";
+      feedback.innerHTML = `<div class="feed-pill" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;">⚠️ Face lost! Please look at camera</div>`;
+      setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 2500);
       return;
     }
 
@@ -519,54 +523,62 @@ async function handleAttendance() {
       method: "POST",
       mode: "cors",
       redirect: "follow",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payloadData)
     });
 
     const resJson = await response.json();
     punchBtn.disabled = false;
-    let res = String(resJson.status || "");
 
+    let res = String(resJson.status || "");
     let isSuccess = res.includes("SUCCESS") || res.includes("Recorded") || res.includes("Punch");
     let isAlready = res.includes("⚠️") || res.includes("ALREADY");
     let isNewCapture = res.includes("NAYA CHEHRA") || res.includes("CAPTURE");
 
     if (isSuccess) {
       let isPunchOut = res.includes("Punch Out");
-      let pillStyle = isPunchOut 
-        ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;" 
+      let pillStyle = isPunchOut
+        ? "background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: white; border: 1px solid #818cf8;"
         : "background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: white; border: 1px solid #34d399;";
 
-      feedback.innerHTML = `<span class='feed-pill' style='${pillStyle}'>${res}</span>`;
+      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="${pillStyle}">${res}</div>`;
       if (typeof gsap !== 'undefined') {
         gsap.from("#feedback .feed-pill", { y: 15, scale: 0.9, opacity: 0, duration: 0.45, ease: "back.out(1.5)" });
       }
-      setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 3500);
+
+      // Auto-Reset for next staff
+      setTimeout(() => {
+        if (typeof resetScannerUI === 'function') resetScannerUI();
+      }, 3500);
 
     } else if (isNewCapture) {
-      feedback.innerHTML = `<span class='feed-pill bg-warning text-dark shadow-lg'>${res}</span>`;
-      alert(res + "\n\nAb HR Portal par jakar 'Staff Management' me is photo ko Approve karein.");
-      setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 4000);
+      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#e0e7ff; color:#3730a3; border:1px solid #a5b4fc;">📸 ${res}<br><small>Sent to HR for Approval</small></div>`;
+      setTimeout(() => {
+        if (typeof resetScannerUI === 'function') resetScannerUI();
+      }, 4000);
 
     } else if (isAlready) {
-      feedback.innerHTML = `<span class='feed-pill bg-warning text-dark'>${res}</span>`;
+      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#fef3c7; color:#92400e; border:1px solid #fcd34d;">${res}</div>`;
       if (typeof gsap !== 'undefined') {
         gsap.fromTo("#feedback .feed-pill", { x: -8 }, { x: 8, duration: 0.1, repeat: 3, yoyo: true });
       }
-      setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 3500);
+      setTimeout(() => {
+        if (typeof resetScannerUI === 'function') resetScannerUI();
+      }, 3500);
 
     } else {
-      feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>${res}</span>`;
-      alert(res);
-      setTimeout(() => { if (typeof resetScannerUI === 'function') resetScannerUI(); }, 3500);
+      feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;">${res}</div>`;
+      setTimeout(() => {
+        if (typeof resetScannerUI === 'function') resetScannerUI();
+      }, 3500);
     }
 
   } catch (err) {
     punchBtn.disabled = false;
-    feedback.innerHTML = `<span class='feed-pill bg-danger text-white'>Error: ${err.message}</span>`;
-    alert("Connection Error: " + err.message);
+    feedback.innerHTML = `<div class="feed-pill shadow-sm" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;">⚠️ Connection Error: ${err.message}</div>`;
+    setTimeout(() => {
+      if (typeof resetScannerUI === 'function') resetScannerUI();
+    }, 3500);
   }
 }
 
